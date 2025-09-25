@@ -82,163 +82,200 @@ class Animation(object):
         self.suspend_mobject_updating = suspend_mobject_updating
 
     def _validate_input_type(self, mobject: Mobject) -> None:
-        if not isinstance(mobject, Mobject):
-            raise TypeError("Animation only works for Mobjects.")
+        """验证输入对象是否为Mobject类型"""
+    if not isinstance(mobject, Mobject):
+        # 如果不是Mobject类型则抛出类型错误
+        raise TypeError("Animation only works for Mobjects.")
 
-    def __str__(self) -> str:
-        return self.name
+def __str__(self) -> str:
+    """返回动画的名称字符串表示"""
+    return self.name
 
-    def begin(self) -> None:
-        # This is called right as an animation is being
-        # played.  As much initialization as possible,
-        # especially any mobject copying, should live in
-        # this method
-        if self.time_span is not None:
-            start, end = self.time_span
-            self.run_time = max(end, self.run_time)
-        self.mobject.set_animating_status(True)
-        self.starting_mobject = self.create_starting_mobject()
-        if self.suspend_mobject_updating:
-            self.mobject_was_updating = not self.mobject.updating_suspended
-            self.mobject.suspend_updating()
-        self.families = list(self.get_all_families_zipped())
-        self.interpolate(0)
+def begin(self) -> None:
+    """动画开始时调用的初始化方法"""
+    # 如果指定了时间区间，调整运行时间以适应区间
+    if self.time_span is not None:
+        start, end = self.time_span
+        self.run_time = max(end, self.run_time)
+    # 标记mobject为正在动画状态
+    self.mobject.set_animating_status(True)
+    # 创建mobject的初始状态副本
+    self.starting_mobject = self.create_starting_mobject()
+    # 根据设置暂停mobject的自动更新
+    if self.suspend_mobject_updating:
+        self.mobject_was_updating = not self.mobject.updating_suspended
+        self.mobject.suspend_updating()
+    # 获取所有相关mobject家族并压缩组合
+    self.families = list(self.get_all_families_zipped())
+    # 初始化为alpha=0的状态
+    self.interpolate(0)
 
-    def finish(self) -> None:
-        self.interpolate(self.final_alpha_value)
-        self.mobject.set_animating_status(False)
-        if self.suspend_mobject_updating and self.mobject_was_updating:
-            self.mobject.resume_updating()
+def finish(self) -> None:
+    """动画结束时调用的收尾方法"""
+    # 将动画插值到最终状态
+    self.interpolate(self.final_alpha_value)
+    # 标记mobject为非动画状态
+    self.mobject.set_animating_status(False)
+    # 如果需要，恢复mobject的自动更新
+    if self.suspend_mobject_updating and self.mobject_was_updating:
+        self.mobject.resume_updating()
 
-    def clean_up_from_scene(self, scene: Scene) -> None:
-        if self.is_remover():
-            scene.remove(self.mobject)
+def clean_up_from_scene(self, scene: Scene) -> None:
+    """从场景中清理动画相关资源"""
+    # 如果是移除型动画，从场景中移除mobject
+    if self.is_remover():
+        scene.remove(self.mobject)
 
-    def create_starting_mobject(self) -> Mobject:
-        # Keep track of where the mobject starts
-        return self.mobject.copy()
+def create_starting_mobject(self) -> Mobject:
+    """创建mobject的初始状态副本，记录动画开始前的状态"""
+    return self.mobject.copy()
 
-    def get_all_mobjects(self) -> tuple[Mobject, Mobject]:
-        """
-        Ordering must match the ording of arguments to interpolate_submobject
-        """
-        return self.mobject, self.starting_mobject
+def get_all_mobjects(self) -> tuple[Mobject, Mobject]:
+    """
+    获取所有与动画相关的mobject
+    顺序需与interpolate_submobject方法的参数顺序一致
+    """
+    return self.mobject, self.starting_mobject
 
-    def get_all_families_zipped(self) -> zip[tuple[Mobject]]:
-        return zip(*[
-            mob.get_family()
-            for mob in self.get_all_mobjects()
-        ])
+def get_all_families_zipped(self) -> zip[tuple[Mobject]]:
+    """获取所有相关mobject的家族树并按层级压缩"""
+    return zip(*[
+        mob.get_family()  # 获取每个mobject的家族成员（包括自身和子对象）
+        for mob in self.get_all_mobjects()
+    ])
 
-    def update_mobjects(self, dt: float) -> None:
-        """
-        Updates things like starting_mobject, and (for
-        Transforms) target_mobject.
-        """
-        for mob in self.get_all_mobjects_to_update():
-            mob.update(dt)
+def update_mobjects(self, dt: float) -> None:
+    """更新动画相关的mobject（如起始状态副本）"""
+    # 对需要更新的mobject调用update方法
+    for mob in self.get_all_mobjects_to_update():
+        mob.update(dt)
 
-    def get_all_mobjects_to_update(self) -> list[Mobject]:
-        # The surrounding scene typically handles
-        # updating of self.mobject.
-        items = list(filter(
-            lambda m: m is not self.mobject,
-            self.get_all_mobjects()
-        ))
-        items = remove_list_redundancies(items)
-        return items
+def get_all_mobjects_to_update(self) -> list[Mobject]:
+    """获取需要在动画过程中更新的mobject列表"""
+    # 排除主mobject（通常由场景负责更新）
+    items = list(filter(
+        lambda m: m is not self.mobject,
+        self.get_all_mobjects()
+    ))
+    # 移除列表中的重复项
+    items = remove_list_redundancies(items)
+    return items
 
-    def copy(self):
-        return deepcopy(self)
+def copy(self):
+    """创建动画对象的深拷贝"""
+    return deepcopy(self)
 
-    def update_rate_info(
-        self,
-        run_time: float | None = None,
-        rate_func: Callable[[float], float] | None = None,
-        lag_ratio: float | None = None,
-    ):
-        self.run_time = run_time or self.run_time
-        self.rate_func = rate_func or self.rate_func
-        self.lag_ratio = lag_ratio or self.lag_ratio
-        return self
+def update_rate_info(
+    self,
+    run_time: float | None = None,
+    rate_func: Callable[[float], float] | None = None,
+    lag_ratio: float | None = None,
+):
+    """更新动画的速率相关参数（运行时间、速率函数、延迟比例）"""
+    self.run_time = run_time or self.run_time
+    self.rate_func = rate_func or self.rate_func
+    self.lag_ratio = lag_ratio or self.lag_ratio
+    return self  # 支持链式调用
 
-    # Methods for interpolation, the mean of an Animation
-    def interpolate(self, alpha: float) -> None:
-        self.interpolate_mobject(alpha)
+# 插值相关方法（动画的核心逻辑）
+def interpolate(self, alpha: float) -> None:
+    """根据alpha值（0到1）插值更新mobject状态"""
+    self.interpolate_mobject(alpha)
 
-    def update(self, alpha: float) -> None:
-        """
-        This method shouldn't exist, but it's here to
-        keep many old scenes from breaking
-        """
-        self.interpolate(alpha)
+def update(self, alpha: float) -> None:
+    """
+    兼容旧版本的更新方法
+    本应被移除，但为了兼容旧场景保留
+    """
+    self.interpolate(alpha)
 
-    def time_spanned_alpha(self, alpha: float) -> float:
-        if self.time_span is not None:
-            start, end = self.time_span
-            return clip(alpha * self.run_time - start, 0, end - start) / (end - start)
-        return alpha
+def time_spanned_alpha(self, alpha: float) -> float:
+    """根据时间区间调整alpha值"""
+    if self.time_span is not None:
+        start, end = self.time_span
+        # 将alpha值映射到指定的时间区间内
+        return clip(alpha * self.run_time - start, 0, end - start) / (end - start)
+    return alpha
 
-    def interpolate_mobject(self, alpha: float) -> None:
-        for i, mobs in enumerate(self.families):
-            sub_alpha = self.get_sub_alpha(self.time_spanned_alpha(alpha), i, len(self.families))
-            self.interpolate_submobject(*mobs, sub_alpha)
+def interpolate_mobject(self, alpha: float) -> None:
+    """对mobject及其子对象进行插值更新"""
+    for i, mobs in enumerate(self.families):
+        # 计算每个子对象的插值比例（考虑延迟）
+        sub_alpha = self.get_sub_alpha(self.time_spanned_alpha(alpha), i, len(self.families))
+        # 对子对象进行插值
+        self.interpolate_submobject(*mobs, sub_alpha)
 
-    def interpolate_submobject(
-        self,
-        submobject: Mobject,
-        starting_submobject: Mobject,
-        alpha: float
-    ):
-        # Typically ipmlemented by subclass
-        pass
+def interpolate_submobject(
+    self,
+    submobject: Mobject,
+    starting_submobject: Mobject,
+    alpha: float
+):
+    """
+    子对象插值的具体实现
+    通常由子类重写以实现特定动画效果
+    """
+    pass
 
-    def get_sub_alpha(
-        self,
-        alpha: float,
-        index: int,
-        num_submobjects: int
-    ) -> float:
-        # TODO, make this more understanable, and/or combine
-        # its functionality with AnimationGroup's method
-        # build_animations_with_timings
-        lag_ratio = self.lag_ratio
-        full_length = (num_submobjects - 1) * lag_ratio + 1
-        value = alpha * full_length
-        lower = index * lag_ratio
-        raw_sub_alpha = clip((value - lower), 0, 1)
-        return self.rate_func(raw_sub_alpha)
+def get_sub_alpha(
+    self,
+    alpha: float,
+    index: int,
+    num_submobjects: int
+) -> float:
+    """计算子对象的插值比例（考虑延迟比例）"""
+    lag_ratio = self.lag_ratio
+    # 计算总动画长度（考虑所有子对象的延迟）
+    full_length = (num_submobjects - 1) * lag_ratio + 1
+    value = alpha * full_length
+    # 计算当前子对象的起始位置
+    lower = index * lag_ratio
+    # 计算原始子对象alpha值并限制在0-1范围内
+    raw_sub_alpha = clip((value - lower), 0, 1)
+    # 应用速率函数调整动画节奏
+    return self.rate_func(raw_sub_alpha)
 
-    # Getters and setters
-    def set_run_time(self, run_time: float):
-        self.run_time = run_time
-        return self
+# Getter和Setter方法
+def set_run_time(self, run_time: float):
+    """设置动画运行时间"""
+    self.run_time = run_time
+    return self  # 支持链式调用
 
-    def get_run_time(self) -> float:
-        if self.time_span:
-            return max(self.run_time, self.time_span[1])
-        return self.run_time
+def get_run_time(self) -> float:
+    """获取动画运行时间（考虑时间区间）"""
+    if self.time_span:
+        return max(self.run_time, self.time_span[1])
+    return self.run_time
 
-    def set_rate_func(self, rate_func: Callable[[float], float]):
-        self.rate_func = rate_func
-        return self
+def set_rate_func(self, rate_func: Callable[[float], float]):
+    """设置动画速率函数"""
+    self.rate_func = rate_func
+    return self  # 支持链式调用
 
-    def get_rate_func(self) -> Callable[[float], float]:
-        return self.rate_func
+def get_rate_func(self) -> Callable[[float], float]:
+    """获取当前动画速率函数"""
+    return self.rate_func
 
-    def set_name(self, name: str):
-        self.name = name
-        return self
+def set_name(self, name: str):
+    """设置动画名称"""
+    self.name = name
+    return self  # 支持链式调用
 
-    def is_remover(self) -> bool:
-        return self.remover
+def is_remover(self) -> bool:
+    """判断当前动画是否为移除型动画"""
+    return self.remover
 
 
 def prepare_animation(anim: Animation | _AnimationBuilder):
+    """
+    将动画构建器转换为实际动画对象
+    用于统一处理Animation实例和_AnimationBuilder实例
+    """
     if isinstance(anim, _AnimationBuilder):
-        return anim.build()
+        return anim.build()  # 构建动画对象
 
     if isinstance(anim, Animation):
-        return anim
+        return anim  # 直接返回动画实例
 
+    # 类型不匹配时抛出错误
     raise TypeError(f"Object {anim} cannot be converted to an animation")
