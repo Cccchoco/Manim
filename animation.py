@@ -36,36 +36,49 @@ DEFAULT_ANIMATION_LAG_RATIO = 0
 
 
 class Animation(object):
+    """动画基类，所有具体动画类的父类，定义了动画的基本属性和行为"""
+    
     def __init__(
         self,
         mobject: Mobject,
         run_time: float = DEFAULT_ANIMATION_RUN_TIME,
-        # Tuple of times, between which the animation will run
+        # 动画运行的时间区间（元组形式）
         time_span: tuple[float, float] | None = None,
-        # If 0, the animation is applied to all submobjects at the same time
-        # If 1, it is applied to each successively.
-        # If 0 < lag_ratio < 1, its applied to each with lagged start times
+        # 延迟比例：
+        # - 0表示所有子对象同时开始动画
+        # - 1表示按顺序依次应用到每个子对象
+        # - 0到1之间表示每个子对象按滞后时间依次开始
         lag_ratio: float = DEFAULT_ANIMATION_LAG_RATIO,
         rate_func: Callable[[float], float] = smooth,
         name: str = "",
-        # Does this animation add or remove a mobject from the screen
+        # 该动画是否在屏幕上添加或移除mobject
         remover: bool = False,
-        # What to enter into the update function upon completion
+        # 动画完成时更新函数的最终alpha值
         final_alpha_value: float = 1.0,
-        # If set to True, the mobject itself will have its internal updaters called,
-        # but the start or target mobjects would not be suspended. To completely suspend
-        # updating, call mobject.suspend_updating() before the animation
+        # 如果设为True，mobject自身的内部更新器会被调用，
+        # 但起始或目标mobject不会被暂停。
+        # 若要完全暂停更新，请在动画前调用mobject.suspend_updating()
         suspend_mobject_updating: bool = False,
     ):
+        # 验证输入的mobject类型是否合法
         self._validate_input_type(mobject)
+        # 动画作用的mobject（Manim中的可动画对象）
         self.mobject = mobject
+        # 动画运行时间（秒），默认使用全局默认值
         self.run_time = run_time
+        # 动画运行的时间区间，None表示使用默认时间线
         self.time_span = time_span
+        # 速率函数，控制动画进度的变化速率（如平滑过渡、先快后慢等）
         self.rate_func = rate_func
+        # 动画名称，默认使用"类名+对象标识"的形式
         self.name = name or self.__class__.__name__ + str(self.mobject)
+        # 标记该动画是否用于移除mobject
         self.remover = remover
+        # 动画结束时的最终alpha值（用于透明度等渐变属性）
         self.final_alpha_value = final_alpha_value
+        # 子对象动画的延迟比例
         self.lag_ratio = lag_ratio
+        # 是否暂停mobject的自动更新
         self.suspend_mobject_updating = suspend_mobject_updating
 
     def _validate_input_type(self, mobject: Mobject) -> None:
