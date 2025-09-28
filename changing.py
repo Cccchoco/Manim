@@ -1,13 +1,24 @@
+# 从__future__导入annotations以支持类型注解的前向引用（允许在注解中使用尚未定义的类型）
 from __future__ import annotations
 
-import numpy as np
+import numpy as np  # 导入numpy库，用于数值计算和数组操作
 
-from manimlib.constants import BLUE_B, BLUE_D, BLUE_E, GREY_BROWN, DEFAULT_MOBJECT_COLOR
-from manimlib.mobject.mobject import Mobject
-from manimlib.mobject.types.vectorized_mobject import VGroup
-from manimlib.mobject.types.vectorized_mobject import VMobject
+# 从manimlib中导入常用颜色常量
+from manimlib.constants import (
+    BLUE_B,          # 蓝色B（具体色值定义在constants中）
+    BLUE_D,          # 蓝色D
+    BLUE_E,          # 蓝色E
+    GREY_BROWN,      # 灰棕色
+    DEFAULT_MOBJECT_COLOR  # Mobject的默认颜色
+)
+# 导入基本图形对象类和组合图形类
+from manimlib.mobject.mobject import Mobject  # 所有可移动对象的基类
+from manimlib.mobject.types.vectorized_mobject import VGroup  # 用于组合多个VMobject的容器类
+from manimlib.mobject.types.vectorized_mobject import VMobject  # 向量图形对象类（支持贝塞尔曲线等）
+# 导入平滑过渡的速率函数（用于动画效果）
 from manimlib.utils.rate_functions import smooth
 
+# 条件导入TYPE_CHECKING，用于在类型检查时引入特定模块，避免运行时循环导入
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
