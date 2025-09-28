@@ -1,18 +1,33 @@
+# 从__future__导入annotations，支持在类型注解中使用尚未定义的类
 from __future__ import annotations
 
+# 从abc模块导入抽象基类相关工具，用于定义必须被重写的方法
 from abc import ABC, abstractmethod
 
+# 导入numpy库，用于数值计算
 import numpy as np
 
+# 从动画模块导入Animation基类，所有具体动画类都继承自它
 from manimlib.animation.animation import Animation
+
+# 导入字符串相关的可动对象类，用于处理文本字符串的动画
 from manimlib.mobject.svg.string_mobject import StringMobject
+
+# 导入矢量可动对象基类，用于处理矢量图形的动画
 from manimlib.mobject.types.vectorized_mobject import VMobject
+
+# 导入贝塞尔曲线相关的整数插值函数
 from manimlib.utils.bezier import integer_interpolate
-from manimlib.utils.rate_functions import linear
-from manimlib.utils.rate_functions import double_smooth
-from manimlib.utils.rate_functions import smooth
+
+# 导入各种速率函数，用于控制动画的速度变化曲线
+from manimlib.utils.rate_functions import linear  # 线性速率函数
+from manimlib.utils.rate_functions import double_smooth  # 双平滑速率函数（开始和结束都平滑）
+from manimlib.utils.rate_functions import smooth  # 平滑速率函数（常用的缓动函数）
+
+# 导入截断函数，用于将值限制在特定范围内
 from manimlib.utils.simple_functions import clip
 
+# 导入类型检查相关模块
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
