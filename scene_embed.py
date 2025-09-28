@@ -7,11 +7,28 @@ import traceback
 from IPython.terminal import pt_inputhooks
 from IPython.terminal.embed import InteractiveShellEmbed
 
+# 从manimlib的动画淡入淡出模块导入VFadeInThenOut类
+# 该类用于创建先淡入后淡出的动画效果，适用于需要临时显示的元素
 from manimlib.animation.fading import VFadeInThenOut
+
+# 从manimlib配置模块导入manim_config对象
+# 该对象存储了Manim的配置信息，可用于访问或修改渲染参数、路径设置等
 from manimlib.config import manim_config
+
+# 从manimlib常量模块导入RED常量
+# 这是Manim预定义的红色颜色常量，用于设置图形元素的颜色
 from manimlib.constants import RED
+
+# 从manimlib的mobject模块导入Mobject类
+# Mobject是Manim中所有可渲染对象的基类，所有图形元素都继承自此类
 from manimlib.mobject.mobject import Mobject
+
+# 从manimlib的mobject模块导入FullScreenRectangle类
+# 该类用于创建一个覆盖整个屏幕的矩形对象，常用于背景设置等场景
 from manimlib.mobject.frame import FullScreenRectangle
+
+# 从manimlib导入ModuleLoader类
+# 该类用于加载Manim相关的模块和场景，处理导入和加载逻辑
 from manimlib.module_loader import ModuleLoader
 
 
