@@ -100,9 +100,11 @@ def begin(self) -> None:
     # self.init_run_time()
 
     def finish(self) -> None:
+    # 当动画组合完成时，将组合对象的动画状态设为False（不再动画中）
         self.group.set_animating_status(False)
-        for anim in self.animations:
-            anim.finish()
+    # 遍历所有子动画，并调用它们各自的finish()方法，确保每个子动画都完成收尾工作
+    for anim in self.animations:
+        anim.finish()
 
     def clean_up_from_scene(self, scene: Scene) -> None:
         for anim in self.animations:
