@@ -279,6 +279,4 @@ def prepare_animation(anim: Animation | _AnimationBuilder):
 
     # 类型不匹配时抛出错误
     raise TypeError(f"Object {anim} cannot be converted to an animation")
-"""
-juli
-"""
+

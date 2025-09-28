@@ -1,60 +1,89 @@
+# 从__future__导入annotations，支持在类型注解中使用尚未定义的类
 from __future__ import annotations
 
+# 从manimlib的animation模块导入Animation基类和prepare_animation函数
 from manimlib.animation.animation import Animation
 from manimlib.animation.animation import prepare_animation
-from manimlib.mobject.mobject import _AnimationBuilder
-from manimlib.mobject.mobject import Group
-from manimlib.mobject.types.vectorized_mobject import VGroup
-from manimlib.mobject.types.vectorized_mobject import VMobject
-from manimlib.utils.bezier import integer_interpolate
-from manimlib.utils.bezier import interpolate
-from manimlib.utils.iterables import remove_list_redundancies
-from manimlib.utils.simple_functions import clip
 
+# 从mobject模块导入动画构建器和组合对象类
+from manimlib.mobject.mobject import _AnimationBuilder  # 动画构建器，用于简化动画创建
+from manimlib.mobject.mobject import Group  # 普通对象组合类
+
+# 从vectorized_mobject模块导入矢量对象相关类
+from manimlib.mobject.types.vectorized_mobject import VGroup  # 矢量对象组合类
+from manimlib.mobject.types.vectorized_mobject import VMobject  # 矢量图形对象基类
+
+# 从工具模块导入插值和贝塞尔曲线相关函数
+from manimlib.utils.bezier import integer_interpolate  # 整数插值函数
+from manimlib.utils.bezier import interpolate  # 通用插值函数
+from manimlib.utils.iterables import remove_list_redundancies  # 移除列表中的冗余元素
+from manimlib.utils.simple_functions import clip  # 截断函数，将值限制在指定范围内
+
+# 导入类型检查相关模块
 from typing import TYPE_CHECKING, Union, Iterable
-AnimationType = Union[Animation, _AnimationBuilder]
-
+# 如果是类型检查阶段，则导入相关类型（避免运行时循环导入问题）
 if TYPE_CHECKING:
-    from typing import Callable, Optional
-
-    from manimlib.mobject.mobject import Mobject
-    from manimlib.scene.scene import Scene
+    # 定义AnimationType类型别名，表示可以是Animation实例或_AnimationBuilder
+    AnimationType = Union[Animation, _AnimationBuilder]
 
 
 DEFAULT_LAGGED_START_LAG_RATIO = 0.05
 
 
 class AnimationGroup(Animation):
+    """
+    动画组合类，用于同时或按比例延迟执行多个动画
+    继承自Animation基类，是Manim中组合动画的核心类
+    """
     def __init__(
         self,
         *args: AnimationType | Iterable[AnimationType],
-        run_time: float = -1,  # If negative, default to sum of inputed animation runtimes
-        lag_ratio: float = 0.0,
-        group: Optional[Mobject] = None,
-        group_type: Optional[type] = None,
-        **kwargs
+        run_time: float = -1,  # 若为负数，默认值为所有子动画运行时间的总和
+        lag_ratio: float = 0.0,  # 动画之间的延迟比例，0表示同时开始，1表示完全按顺序
+        group: Optional[Mobject] = None,  # 可选的预定义动画组对象
+        group_type: Optional[type] = None,  # 可选的组类型（如VGroup或Group）
+        **kwargs  # 传递给父类Animation的其他参数
     ):
+        # 处理输入的动画列表：如果第一个参数是可迭代对象，则将其作为动画列表，否则使用所有参数
         animations = args[0] if isinstance(args[0], Iterable) else args
+        
+        # 准备所有动画（将动画构建器转换为实际动画对象）
         self.animations = [prepare_animation(anim) for anim in animations]
+        
+        # 根据延迟比例构建动画的时间安排
         self.build_animations_with_timings(lag_ratio)
+        
+        # 计算所有动画的最大结束时间（用于确定默认总时长）
         self.max_end_time = max((awt[2] for awt in self.anims_with_timings), default=0)
+        
+        # 确定总运行时间：若未指定（run_time < 0），则使用最大结束时间
         self.run_time = self.max_end_time if run_time < 0 else run_time
+        
+        # 保存延迟比例
         self.lag_ratio = lag_ratio
+        
+        # 收集所有动画涉及的Mobject，并移除重复项
         mobs = remove_list_redundancies([a.mobject for a in self.animations])
+        
+        # 确定组合动画的组对象（用于统一控制动画的目标）
         if group is not None:
+            # 使用预定义的组
             self.group = group
         elif group_type is not None:
+            # 使用指定的组类型创建组
             self.group = group_type(*mobs)
         elif all(isinstance(anim.mobject, VMobject) for anim in animations):
+            # 若所有动画对象都是矢量对象，使用VGroup
             self.group = VGroup(*mobs)
         else:
+            # 否则使用普通Group
             self.group = Group(*mobs)
 
+        # 调用父类构造函数，初始化动画
         super().__init__(
             self.group,
             run_time=self.run_time,
-            lag_ratio=lag_ratio,
-            **kwargs
+            lag_ratio=lag_ratio,** kwargs
         )
 
     def get_all_mobjects(self) -> Mobject:
