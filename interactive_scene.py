@@ -21,29 +21,74 @@ from IPython.core.getipython import get_ipython
 # 常用于处理游戏或交互应用中的键盘输入
 from pyglet.window import key as PygletWindowKeys
 
+# 从manimlib的淡入动画模块导入FadeIn类
+# 该类用于创建元素淡入的动画效果
 from manimlib.animation.fading import FadeIn
+
+# 从manimlib配置模块导入manim_config对象
+# 存储Manim的配置信息，可访问和修改渲染参数等设置
 from manimlib.config import manim_config
+
+# 从manimlib常量模块导入方向常量
+# 分别表示左下、下、右下、左、原点、右、左上、上、右上方向
 from manimlib.constants import DL, DOWN, DR, LEFT, ORIGIN, RIGHT, UL, UP, UR
+
+# 从manimlib常量模块导入屏幕尺寸和间距常量
+# FRAME_WIDTH/FRAME_HEIGHT表示场景的宽高，SMALL_BUFF表示小间距值
 from manimlib.constants import FRAME_WIDTH, FRAME_HEIGHT, SMALL_BUFF
+
+# 导入圆周率常量π，用于角度和几何计算
 from manimlib.constants import PI
+
+# 导入角度单位常量DEG（度），用于角度相关计算
 from manimlib.constants import DEG
+
+# 导入颜色相关常量
+# MANIM_COLORS是颜色字典，WHITE是白色，GREY_A和GREY_C是不同深度的灰色
 from manimlib.constants import MANIM_COLORS, WHITE, GREY_A, GREY_C
+
+# 从几何模块导入基本几何图形类
+# Line（线段）、Rectangle（矩形）、Square（正方形）
 from manimlib.mobject.geometry import Line
 from manimlib.mobject.geometry import Rectangle
 from manimlib.mobject.geometry import Square
+
+# 从mobject模块导入组合对象类
+# Group（普通组合对象）、Mobject（所有可渲染对象的基类）
 from manimlib.mobject.mobject import Group
 from manimlib.mobject.mobject import Mobject
+
+# 从数字模块导入DecimalNumber类，用于显示带小数的数字
 from manimlib.mobject.numbers import DecimalNumber
+
+# 从SVG模块导入文本相关类
+# Tex用于显示LaTeX公式，Text用于显示普通文本
 from manimlib.mobject.svg.tex_mobject import Tex
 from manimlib.mobject.svg.text_mobject import Text
+
+# 从点云类型模块导入DotCloud类，用于创建点云对象
 from manimlib.mobject.types.dot_cloud import DotCloud
+
+# 从向量化对象类型模块导入相关类
+# VGroup（向量化组合对象）、VHighlight（向量化高亮对象）、VMobject（向量化可渲染对象基类）
 from manimlib.mobject.types.vectorized_mobject import VGroup
 from manimlib.mobject.types.vectorized_mobject import VHighlight
 from manimlib.mobject.types.vectorized_mobject import VMobject
+
+# 从场景模块导入场景相关类
+# Scene是所有动画场景的基类，SceneState用于管理场景状态
 from manimlib.scene.scene import Scene
 from manimlib.scene.scene import SceneState
+
+# 从家族操作工具模块导入提取对象家族成员的函数
+# 用于获取一个对象及其所有子对象的集合
 from manimlib.utils.family_ops import extract_mobject_family_members
+
+# 从空间操作工具模块导入求范数的函数，用于计算向量的长度
 from manimlib.utils.space_ops import get_norm
+
+# 从LaTeX文件写入工具模块导入LaTeX错误类
+# 用于处理LaTeX公式生成过程中的错误
 from manimlib.utils.tex_file_writing import LatexError
 
 from typing import TYPE_CHECKING
