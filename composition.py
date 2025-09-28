@@ -87,13 +87,17 @@ class AnimationGroup(Animation):
         )
 
     def get_all_mobjects(self) -> Mobject:
+    # 返回该动画组合所包含的所有动画对象的组
         return self.group
 
-    def begin(self) -> None:
-        self.group.set_animating_status(True)
-        for anim in self.animations:
-            anim.begin()
-        # self.init_run_time()
+def begin(self) -> None:
+    # 将组合中的所有对象设置为"正在动画中"状态
+    self.group.set_animating_status(True)
+    # 对组合中的每个子动画调用begin()方法，初始化它们的动画状态
+    for anim in self.animations:
+        anim.begin()
+    # （注释掉的代码）初始化运行时间，可能是遗留的调试或备用代码
+    # self.init_run_time()
 
     def finish(self) -> None:
         self.group.set_animating_status(False)
