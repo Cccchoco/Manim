@@ -30,6 +30,7 @@ from manimlib.utils.simple_functions import clip
 # 导入类型检查相关模块
 from typing import TYPE_CHECKING
 
+# 当进行类型检查时（运行时不会执行），导入所需的类型提示
 if TYPE_CHECKING:
     from typing import Callable
     from manimlib.mobject.mobject import Mobject
@@ -39,11 +40,14 @@ if TYPE_CHECKING:
 
 class ShowPartial(Animation, ABC):
     """
-    Abstract class for ShowCreation and ShowPassingFlash
+    抽象类，作为ShowCreation和ShowPassingFlash的基类
+    用于实现物体部分显示的动画效果
     """
     def __init__(self, mobject: Mobject, should_match_start: bool = False, **kwargs):
+        # 标记是否应该匹配起始状态
         self.should_match_start = should_match_start
-        super().__init__(mobject, **kwargs)
+        # 调用父类Animation的初始化方法，传递mobject和其他关键字参数
+        super().__init__(mobject,** kwargs)
 
     def interpolate_submobject(
         self,
@@ -51,6 +55,16 @@ class ShowPartial(Animation, ABC):
         start_submob: VMobject,
         alpha: float
     ) -> None:
+        """
+        插值处理子物体，定义动画过程中每个子物体的状态变化
+        
+        参数:
+            submob: 要进行插值的子物体
+            start_submob: 子物体的起始状态
+            alpha: 动画进度，范围从0到1
+        """
+        # 使子物体部分地变成起始状态的一部分
+        # 具体显示哪部分由get_bounds(alpha)返回的边界决定
         submob.pointwise_become_partial(
             start_submob, *self.get_bounds(alpha)
         )
