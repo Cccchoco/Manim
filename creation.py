@@ -69,28 +69,49 @@ class ShowPartial(Animation, ABC):
             start_submob, *self.get_bounds(alpha)
         )
 
-    @abstractmethod
-    def get_bounds(self, alpha: float) -> tuple[float, float]:
-        raise Exception("Not Implemented")
+   # 定义抽象方法 get_bounds，要求子类必须实现该方法
+# 参数 alpha 为浮点型，返回值为包含两个浮点数的元组
+@abstractmethod
+def get_bounds(self, alpha: float) -> tuple[float, float]:
+    # 如果子类未实现该方法，则抛出异常提示
+    raise Exception("Not Implemented")
 
 
+# 定义 ShowCreation 类，继承自 ShowPartial 类
 class ShowCreation(ShowPartial):
-    def __init__(self, mobject: Mobject, lag_ratio: float = 1.0, **kwargs):
+    # 构造方法，初始化 ShowCreation 实例
+    # 参数：
+    #   mobject: 要展示的动画对象
+    #   lag_ratio: 延迟比例，默认为 1.0
+    #   **kwargs: 其他关键字参数，传递给父类构造方法
+    def __init__(self, mobject: Mobject, lag_ratio: float = 1.0,** kwargs):
+        # 调用父类 ShowPartial 的构造方法，传递参数
         super().__init__(mobject, lag_ratio=lag_ratio, **kwargs)
 
+    # 实现父类的抽象方法 get_bounds
+    # 返回当前动画进度对应的边界范围 (0, alpha)
+    # alpha 表示动画进度（0 为开始，1 为结束）
     def get_bounds(self, alpha: float) -> tuple[float, float]:
         return (0, alpha)
 
 
+# 定义 Uncreate 类，继承自 ShowCreation 类
 class Uncreate(ShowCreation):
+    # 构造方法，初始化 Uncreate 实例
+    # 参数：
+    #   mobject: 要展示的动画对象
+    #   rate_func: 速率函数，控制动画速度变化，默认为反向平滑函数
+    #   remover: 是否在动画结束后移除对象，默认为 True
+    #   should_match_start: 是否匹配起始状态，默认为 True
+    #   **kwargs: 其他关键字参数，传递给父类构造方法
     def __init__(
         self,
         mobject: Mobject,
         rate_func: Callable[[float], float] = lambda t: smooth(1 - t),
         remover: bool = True,
-        should_match_start: bool = True,
-        **kwargs,
+        should_match_start: bool = True,** kwargs,
     ):
+        # 调用父类 ShowCreation 的构造方法，传递参数
         super().__init__(
             mobject,
             rate_func=rate_func,
