@@ -960,201 +960,280 @@ class Axes(VGroup, CoordinateSystem):
         return self.coordinate_labels
 
 
+# 三维坐标系类，继承自二维坐标轴类Axes
 class ThreeDAxes(Axes):
+    # 维度为3（三维）
     dimension: int = 3
+    # 默认Z轴配置
     default_z_axis_config: dict = dict()
 
     def __init__(
         self,
-        x_range: RangeSpecifier = (-6.0, 6.0, 1.0),
-        y_range: RangeSpecifier = (-5.0, 5.0, 1.0),
-        z_range: RangeSpecifier = (-4.0, 4.0, 1.0),
-        z_axis_config: dict = dict(),
-        z_normal: Vect3 = DOWN,
-        depth: float | None = None,
-        **kwargs
+        x_range: RangeSpecifier = (-6.0, 6.0, 1.0),  # X轴范围默认值
+        y_range: RangeSpecifier = (-5.0, 5.0, 1.0),  # Y轴范围默认值
+        z_range: RangeSpecifier = (-4.0, 4.0, 1.0),  # Z轴范围默认值
+        z_axis_config: dict = dict(),  # Z轴特定配置
+        z_normal: Vect3 = DOWN,  # Z轴的法向量方向
+        depth: float | None = None,  # Z轴长度
+        **kwargs  # 传递给父类的其他参数
     ):
+        # 调用父类Axes的初始化方法
         Axes.__init__(self, x_range, y_range, **kwargs)
 
+        # 处理Z轴范围，确保是三元组形式
         self.z_range = full_range_specifier(z_range)
+        # 创建Z轴
         self.z_axis = self.create_axis(
-            self.z_range,
+            self.z_range,  # Z轴范围
+            # 合并Z轴配置：默认配置 → Z轴默认 → 通用配置 → Z轴特定
             axis_config=merge_dicts_recursively(
                 self.default_axis_config,
                 self.default_z_axis_config,
                 kwargs.get("axis_config", {}),
                 z_axis_config
             ),
-            length=depth,
+            length=depth,  # Z轴长度
         )
+        # Z轴绕UP方向旋转-90度（π/2弧度），旋转中心为原点
         self.z_axis.rotate(-PI / 2, UP, about_point=ORIGIN)
+        # Z轴绕OUT方向旋转，角度由z_normal向量决定，旋转中心为原点
         self.z_axis.rotate(
             angle_of_vector(z_normal), OUT,
             about_point=ORIGIN
         )
+        # 将Z轴移动到X轴的原点位置
         self.z_axis.shift(self.x_axis.n2p(0))
+        # 将Z轴添加到坐标轴组
         self.axes.add(self.z_axis)
+        # 将Z轴添加到当前对象
         self.add(self.z_axis)
 
     def get_all_ranges(self) -> list[Sequence[float]]:
+        """返回所有轴的范围（X, Y, Z）"""
         return [self.x_range, self.y_range, self.z_range]
 
     def add_axis_labels(self, x_tex="x", y_tex="y", z_tex="z", font_size=24, buff=0.2):
+        """
+        为三个轴添加标签
+        
+        参数:
+            x_tex: X轴标签的TeX文本
+            y_tex: Y轴标签的TeX文本
+            z_tex: Z轴标签的TeX文本
+            font_size: 字体大小
+            buff: 标签与轴之间的距离
+        """
+        # 创建三个轴的标签对象
         x_label, y_label, z_label = labels = VGroup(*(
             Tex(tex, font_size=font_size)
             for tex in [x_tex, y_tex, z_tex]
         ))
+        # Z轴标签绕RIGHT方向旋转90度（π/2弧度）
         z_label.rotate(PI / 2, RIGHT)
+        # 为每个标签定位并添加到对应轴
         for label, axis in zip(labels, self):
+            # 标签位于轴的末端方向，距离为buff
             label.next_to(axis, normalize(np.round(axis.get_vector()), 2), buff=buff)
             axis.add(label)
+        # 存储标签组
         self.axis_labels = labels
 
     def get_graph(
         self,
-        func,
-        color=BLUE_E,
-        opacity=0.9,
-        u_range=None,
-        v_range=None,
-        **kwargs
+        func,  # 二元函数 z = func(x, y)
+        color=BLUE_E,  # 曲面颜色
+        opacity=0.9,  # 曲面透明度
+        u_range=None,  # u参数范围（对应x）
+        v_range=None,  # v参数范围（对应y）
+        **kwargs  # 传递给ParametricSurface的其他参数
     ) -> ParametricSurface:
+        """创建二元函数对应的参数曲面"""
+        # 获取各轴的单位长度
         xu = self.x_axis.get_unit_size()
         yu = self.y_axis.get_unit_size()
         zu = self.z_axis.get_unit_size()
+        # 获取原点坐标
         x0, y0, z0 = self.get_origin()
+        # 设置u和v的范围，默认使用X和Y轴的范围
         u_range = u_range or self.x_range[:2]
         v_range = v_range or self.y_range[:2]
+        # 创建并返回参数曲面
         return ParametricSurface(
+            # 参数化函数：将(u, v)映射到三维空间中的点
             lambda u, v: [xu * u + x0, yu * v + y0, zu * func(u, v) + z0],
-            u_range=u_range,
-            v_range=v_range,
-            color=color,
-            opacity=opacity,
-            **kwargs
+            u_range=u_range,  # u范围
+            v_range=v_range,  # v范围
+            color=color,  # 颜色
+            opacity=opacity,  # 透明度**kwargs  # 其他参数
         )
 
     def get_parametric_surface(
         self,
-        func,
-        color=BLUE_E,
-        opacity=0.9,
-        **kwargs
+        func,  # 三维参数函数 (u, v) → (x, y, z)
+        color=BLUE_E,  # 曲面颜色
+        opacity=0.9,  # 曲面透明度
+        **kwargs  # 传递给ParametricSurface的其他参数
     ) -> ParametricSurface:
-        surface = ParametricSurface(func, color=color, opacity=opacity, **kwargs)
+        """创建自定义参数曲面并适配当前坐标系"""
+        # 创建参数曲面
+        surface = ParametricSurface(func, color=color, opacity=opacity,** kwargs)
+        # 获取三个轴
         axes = [self.x_axis, self.y_axis, self.z_axis]
+        # 按各轴的单位长度拉伸曲面
         for dim, axis in zip(range(3), axes):
             surface.stretch(axis.get_unit_size(), dim, about_point=ORIGIN)
+        # 将曲面移动到坐标系原点
         surface.shift(self.get_origin())
         return surface
 
 
+# 坐标系类，继承自Axes，带有网格线
 class NumberPlane(Axes):
+    # 默认轴配置
     default_axis_config: dict = dict(
-        stroke_color=DEFAULT_MOBJECT_COLOR,
-        stroke_width=2,
-        include_ticks=False,
-        include_tip=False,
-        line_to_number_buff=SMALL_BUFF,
-        line_to_number_direction=DL,
+        stroke_color=DEFAULT_MOBJECT_COLOR,  # 轴线颜色
+        stroke_width=2,  # 轴线宽度
+        include_ticks=False,  # 不包含刻度
+        include_tip=False,  # 不包含箭头尖端
+        line_to_number_buff=SMALL_BUFF,  # 线到数字的距离
+        line_to_number_direction=DL,  # 数字相对于线的方向
     )
+    # 默认Y轴配置
     default_y_axis_config: dict = dict(
-        line_to_number_direction=DL,
+        line_to_number_direction=DL,  # Y轴数字方向
     )
 
     def __init__(
         self,
-        x_range: RangeSpecifier = (-8.0, 8.0, 1.0),
-        y_range: RangeSpecifier = (-4.0, 4.0, 1.0),
-        background_line_style: dict = dict(
-            stroke_color=BLUE_D,
-            stroke_width=2,
-            stroke_opacity=1,
+        x_range: RangeSpecifier = (-8.0, 8.0, 1.0),  # X轴范围
+        y_range: RangeSpecifier = (-4.0, 4.0, 1.0),  # Y轴范围
+        background_line_style: dict = dict(  # 网格线样式
+            stroke_color=BLUE_D,  # 颜色
+            stroke_width=2,  # 宽度
+            stroke_opacity=1,  # 透明度
         ),
-        # Defaults to a faded version of line_config
-        faded_line_style: dict = dict(),
-        faded_line_ratio: int = 4,
-        make_smooth_after_applying_functions: bool = True,
-        **kwargs
+        faded_line_style: dict = dict(),  # 淡色网格线样式（默认继承主网格线）
+        faded_line_ratio: int = 4,  # 淡色网格线与主网格线的比例
+        make_smooth_after_applying_functions: bool = True,  # 应用函数后是否平滑处理
+        **kwargs  # 传递给父类的参数
     ):
-        super().__init__(x_range, y_range, **kwargs)
+        # 调用父类Axes的初始化方法
+        super().__init__(x_range, y_range,** kwargs)
+        # 存储背景线样式
         self.background_line_style = dict(background_line_style)
+        # 存储淡色线样式
         self.faded_line_style = dict(faded_line_style)
+        # 淡色线比例
         self.faded_line_ratio = faded_line_ratio
+        # 应用函数后是否平滑处理的标志
         self.make_smooth_after_applying_functions = make_smooth_after_applying_functions
+        # 初始化背景网格线
         self.init_background_lines()
 
     def init_background_lines(self) -> None:
+        """初始化背景网格线（主网格线和淡色网格线）"""
+        # 如果未指定淡色线样式，基于主网格线样式创建
         if not self.faded_line_style:
             style = dict(self.background_line_style)
-            # For anything numerical, like stroke_width
-            # and stroke_opacity, chop it in half
+            # 数值型属性（如宽度、透明度）减半
             for key in style:
                 if isinstance(style[key], numbers.Number):
                     style[key] *= 0.5
             self.faded_line_style = style
 
+        # 获取主网格线和淡色网格线
         self.background_lines, self.faded_lines = self.get_lines()
+        # 应用主网格线样式
         self.background_lines.set_style(**self.background_line_style)
-        self.faded_lines.set_style(**self.faded_line_style)
+        # 应用淡色网格线样式
+        self.faded_lines.set_style(** self.faded_line_style)
+        # 将网格线添加到背景（底层）
         self.add_to_back(
             self.faded_lines,
             self.background_lines,
         )
 
     def get_lines(self) -> tuple[VGroup, VGroup]:
+        """获取所有网格线（主网格线和淡色网格线）"""
+        # 获取X轴和Y轴
         x_axis = self.get_x_axis()
         y_axis = self.get_y_axis()
 
+        # 获取平行于X轴和Y轴的网格线（主和淡色）
         x_lines1, x_lines2 = self.get_lines_parallel_to_axis(x_axis, y_axis)
         y_lines1, y_lines2 = self.get_lines_parallel_to_axis(y_axis, x_axis)
+        # 组合主网格线和淡色网格线
         lines1 = VGroup(*x_lines1, *y_lines1)
         lines2 = VGroup(*x_lines2, *y_lines2)
         return lines1, lines2
 
     def get_lines_parallel_to_axis(
         self,
-        axis1: NumberLine,
-        axis2: NumberLine
+        axis1: NumberLine,  # 平行于此轴的线
+        axis2: NumberLine  # 沿此轴分布的线
     ) -> tuple[VGroup, VGroup]:
+        """获取平行于axis1且沿axis2分布的网格线（主和淡色）"""
+        # 获取axis2的步长
         freq = axis2.x_step
+        # 淡色线比例
         ratio = self.faded_line_ratio
+        # 创建一条与axis1等长的线作为模板
         line = Line(axis1.get_start(), axis1.get_end())
+        # 计算密集网格线的频率
         dense_freq = (1 + ratio)
+        # 计算密集网格线的步长
         step = (1 / dense_freq) * freq
 
+        # 存储主网格线和淡色网格线
         lines1 = VGroup()
         lines2 = VGroup()
+        # 生成沿axis2分布的所有线的位置
         inputs = np.arange(axis2.x_min, axis2.x_max + step, step)
+        # 遍历每个位置创建线
         for i, x in enumerate(inputs):
+            # 跳过原点位置（避免与坐标轴重叠）
             if abs(x) < 1e-8:
                 continue
+            # 复制线模板
             new_line = line.copy()
+            # 将线移动到对应位置
             new_line.shift(axis2.n2p(x) - axis2.n2p(0))
+            # 根据索引判断是主网格线还是淡色网格线
             if i % (1 + ratio) == 0:
-                lines1.add(new_line)
+                lines1.add(new_line)  # 主网格线
             else:
-                lines2.add(new_line)
+                lines2.add(new_line)  # 淡色网格线
         return lines1, lines2
 
     def get_x_unit_size(self) -> float:
+        """获取X轴的单位长度"""
         return self.get_x_axis().get_unit_size()
 
     def get_y_unit_size(self) -> list:
+        """获取Y轴的单位长度（这里代码可能有误，应为返回float）"""
         return self.get_x_axis().get_unit_size()
 
     def get_axes(self) -> VGroup:
+        """获取坐标轴组"""
         return self.axes
 
     def get_vector(self, coords: Iterable[float], **kwargs) -> Arrow:
+        """创建从原点到指定坐标的向量箭头"""
+        # 设置箭头与起点/终点的距离为0
         kwargs["buff"] = 0
-        return Arrow(self.c2p(0, 0), self.c2p(*coords), **kwargs)
+        # 创建箭头：从原点到coords对应的点
+        return Arrow(self.c2p(0, 0), self.c2p(*coords),** kwargs)
 
     def prepare_for_nonlinear_transform(self, num_inserted_curves: int = 50) -> Self:
+        """为非线性变换准备坐标系，插入更多曲线段以保持平滑"""
+        # 遍历所有包含点的子对象
         for mob in self.family_members_with_points():
+            # 获取当前曲线段数量
             num_curves = mob.get_num_curves()
+            # 如果需要插入更多曲线段
             if num_inserted_curves > num_curves:
                 mob.insert_n_curves(num_inserted_curves - num_curves)
+            # 标记应用函数后需要平滑处理
             mob.make_smooth_after_applying_functions = True
         return self
 
