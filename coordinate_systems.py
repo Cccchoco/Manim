@@ -596,115 +596,213 @@ def get_scatterplot(self,
     # 将x和y值转换为坐标系中的点，并创建点云
     return DotCloud(self.c2p(x_values, y_values),** dot_config)
 
-    # For calculus
-    def angle_of_tangent(
-        self,
-        x: float,
-        graph: ParametricCurve,
-        dx: float = EPSILON
-    ) -> float:
-        p0 = self.input_to_graph_point(x, graph)
-        p1 = self.input_to_graph_point(x + dx, graph)
-        return angle_of_vector(p1 - p0)
+# 微积分相关功能
+def angle_of_tangent(
+    self,
+    x: float,
+    graph: ParametricCurve,
+    dx: float = EPSILON
+) -> float:
+    """
+    计算函数图像在指定x处切线与水平方向的夹角
+    
+    参数:
+        x: 计算切线角度的x坐标
+        graph: 函数图像对象
+        dx: 微小增量，用于近似计算导数（默认为极小值EPSILON）
+    返回:
+        切线角度（弧度）
+    """
+    # 获取x处的点坐标
+    p0 = self.input_to_graph_point(x, graph)
+    # 获取x+dx处的点坐标（用于近似切线方向）
+    p1 = self.input_to_graph_point(x + dx, graph)
+    # 计算两点连线向量的角度，即切线角度
+    return angle_of_vector(p1 - p0)
 
-    def slope_of_tangent(
-        self,
-        x: float,
-        graph: ParametricCurve,
-        **kwargs
-    ) -> float:
-        return np.tan(self.angle_of_tangent(x, graph, **kwargs))
+def slope_of_tangent(
+    self,
+    x: float,
+    graph: ParametricCurve,** kwargs
+) -> float:
+    """
+    计算函数图像在指定x处切线的斜率
+    
+    参数:
+        x: 计算切线斜率的x坐标
+        graph: 函数图像对象
+        **kwargs: 传递给angle_of_tangent的参数（如dx）
+    返回:
+        切线斜率
+    """
+    # 斜率 = tan(切线角度)
+    return np.tan(self.angle_of_tangent(x, graph, **kwargs))
 
-    def get_tangent_line(
-        self,
-        x: float,
-        graph: ParametricCurve,
-        length: float = 5,
-        line_func: Type[T] = Line
-    ) -> T:
-        line = line_func(LEFT, RIGHT)
-        line.set_width(length)
-        line.rotate(self.angle_of_tangent(x, graph))
-        line.move_to(self.input_to_graph_point(x, graph))
-        return line
+def get_tangent_line(
+    self,
+    x: float,
+    graph: ParametricCurve,
+    length: float = 5,
+    line_func: Type[T] = Line
+) -> T:
+    """
+    获取函数图像在指定x处的切线
+    
+    参数:
+        x: 切线位置的x坐标
+        graph: 函数图像对象
+        length: 切线长度（默认为5）
+        line_func: 线的类型（默认为直线Line）
+    返回:
+        切线对象
+    """
+    # 创建一条水平基准线
+    line = line_func(LEFT, RIGHT)
+    # 设置切线长度
+    line.set_width(length)
+    # 按切线角度旋转线
+    line.rotate(self.angle_of_tangent(x, graph))
+    # 将切线移动到函数图像上的x点位置
+    line.move_to(self.input_to_graph_point(x, graph))
+    return line
 
-    def get_riemann_rectangles(
-        self,
-        graph: ParametricCurve,
-        x_range: Sequence[float] = None,
-        dx: float | None = None,
-        input_sample_type: str = "left",
-        stroke_width: float = 1,
-        stroke_color: ManimColor = BLACK,
-        fill_opacity: float = 1,
-        colors: Iterable[ManimColor] = (BLUE, GREEN),
-        negative_color: ManimColor = RED,
-        stroke_background: bool = True,
-        show_signed_area: bool = True
-    ) -> VGroup:
-        if x_range is None:
-            x_range = self.x_range[:2]
-        if dx is None:
-            dx = self.x_range[2]
-        if len(x_range) < 3:
-            x_range = [*x_range, dx]
+def get_riemann_rectangles(
+    self,
+    graph: ParametricCurve,
+    x_range: Sequence[float] = None,
+    dx: float | None = None,
+    input_sample_type: str = "left",
+    stroke_width: float = 1,
+    stroke_color: ManimColor = BLACK,
+    fill_opacity: float = 1,
+    colors: Iterable[ManimColor] = (BLUE, GREEN),
+    negative_color: ManimColor = RED,
+    stroke_background: bool = True,
+    show_signed_area: bool = True
+) -> VGroup:
+    """
+    创建黎曼矩形（用于近似定积分）
+    
+    参数:
+        graph: 函数图像对象
+        x_range: 积分区间(x_min, x_max)，默认使用坐标系x_range
+        dx: 矩形宽度，默认使用坐标系x_range的间隔
+        input_sample_type: 采样点类型：left/right/center（左/右/中点）
+        stroke_width: 矩形边框宽度
+        stroke_color: 矩形边框颜色
+        fill_opacity: 填充透明度
+        colors: 填充渐变色
+        negative_color: 负值区域填充色
+        stroke_background: 是否将边框置于填充之下
+        show_signed_area: 是否通过颜色区分正负面积
+    返回:
+        包含所有黎曼矩形的VGroup对象
+    """
+    # 处理x_range默认值
+    if x_range is None:
+        x_range = self.x_range[:2]
+    # 处理dx默认值
+    if dx is None:
+        dx = self.x_range[2]
+    # 确保x_range是三元组(x_min, x_max, dx)
+    if len(x_range) < 3:
+        x_range = [*x_range, dx]
 
-        rects = []
-        x_range[1] = x_range[1] + dx
-        xs = np.arange(*x_range)
-        for x0, x1 in zip(xs, xs[1:]):
-            if input_sample_type == "left":
-                sample = x0
-            elif input_sample_type == "right":
-                sample = x1
-            elif input_sample_type == "center":
-                sample = 0.5 * x0 + 0.5 * x1
-            else:
-                raise Exception("Invalid input sample type")
-            height_vect = self.i2gp(sample, graph) - self.c2p(sample, 0)
-            rect = Rectangle(
-                width=self.x_axis.n2p(x1)[0] - self.x_axis.n2p(x0)[0],
-                height=get_norm(height_vect),
-            )
-            rect.positive = height_vect[1] > 0
-            rect.move_to(self.c2p(x0, 0), DL if rect.positive else UL)
-            rects.append(rect)
-        result = VGroup(*rects)
-        result.set_submobject_colors_by_gradient(*colors)
-        result.set_style(
-            stroke_width=stroke_width,
-            stroke_color=stroke_color,
-            fill_opacity=fill_opacity,
-            stroke_behind=stroke_background
+    rects = []  # 存储所有矩形
+    # 扩展上限以确保最后一个矩形完整
+    x_range[1] = x_range[1] + dx
+    # 生成所有矩形左边界x值
+    xs = np.arange(*x_range)
+    # 遍历每个矩形区间[x0, x1)
+    for x0, x1 in zip(xs, xs[1:]):
+        # 根据采样类型选择高度计算点
+        if input_sample_type == "left":
+            sample = x0  # 左端点
+        elif input_sample_type == "right":
+            sample = x1  # 右端点
+        elif input_sample_type == "center":
+            sample = 0.5 * x0 + 0.5 * x1  # 中点
+        else:
+            raise Exception("Invalid input sample type")
+        
+        # 计算矩形高度向量（从x轴到函数图像）
+        height_vect = self.i2gp(sample, graph) - self.c2p(sample, 0)
+        # 创建矩形
+        rect = Rectangle(
+            # 宽度：x1到x0的像素距离
+            width=self.x_axis.n2p(x1)[0] - self.x_axis.n2p(x0)[0],
+            # 高度：高度向量的模长
+            height=get_norm(height_vect),
         )
-        for rect in result:
-            if not rect.positive:
-                rect.set_fill(negative_color)
-        return result
+        # 标记矩形是否在x轴上方
+        rect.positive = height_vect[1] > 0
+        # 定位矩形：上方区域从左下角对齐，下方区域从左上角对齐
+        rect.move_to(self.c2p(x0, 0), DL if rect.positive else UL)
+        rects.append(rect)
+    
+    # 将所有矩形组合成组
+    result = VGroup(*rects)
+    # 设置渐变色填充
+    result.set_submobject_colors_by_gradient(*colors)
+    # 设置矩形样式
+    result.set_style(
+        stroke_width=stroke_width,
+        stroke_color=stroke_color,
+        fill_opacity=fill_opacity,
+        stroke_behind=stroke_background  # 边框在填充之后
+    )
+    # 为负值区域矩形设置特殊颜色
+    for rect in result:
+        if not rect.positive:
+            rect.set_fill(negative_color)
+    
+    return result
 
-    def get_area_under_graph(self, graph, x_range, fill_color=BLUE, fill_opacity=0.5):
-        if not hasattr(graph, "x_range"):
-            raise Exception("Argument `graph` must have attribute `x_range`")
+def get_area_under_graph(self, graph, x_range, fill_color=BLUE, fill_opacity=0.5):
+    """
+    获取函数图像下指定区间的面积区域（多边形）
+    
+    参数:
+        graph: 函数图像对象（需有x_range属性）
+        x_range: 积分区间(x_min, x_max)
+        fill_color: 填充颜色
+        fill_opacity: 填充透明度
+    返回:
+        表示面积的多边形对象
+    """
+    # 检查图形是否有x_range属性
+    if not hasattr(graph, "x_range"):
+        raise Exception("Argument `graph` must have attribute `x_range`")
 
-        alpha_bounds = [
-            inverse_interpolate(*graph.x_range, x)
-            for x in x_range
-        ]
-        sub_graph = graph.copy()
-        sub_graph.pointwise_become_partial(graph, *alpha_bounds)
-        sub_graph.add_line_to(self.c2p(x_range[1], 0))
-        sub_graph.add_line_to(self.c2p(x_range[0], 0))
-        sub_graph.add_line_to(sub_graph.get_start())
+    # 计算区间在图形参数化中的比例范围
+    alpha_bounds = [
+        inverse_interpolate(*graph.x_range, x)
+        for x in x_range
+    ]
+    # 复制图形并截取指定区间部分
+    sub_graph = graph.copy()
+    sub_graph.pointwise_become_partial(graph, *alpha_bounds)
+    # 添加从图形右端点到x轴的垂线
+    sub_graph.add_line_to(self.c2p(x_range[1], 0))
+    # 添加从x轴右端点到左端点的水平线
+    sub_graph.add_line_to(self.c2p(x_range[0], 0))
+    # 添加从x轴左端点回到图形起点的线（闭合多边形）
+    sub_graph.add_line_to(sub_graph.get_start())
 
-        sub_graph.set_stroke(width=0)
-        sub_graph.set_fill(fill_color, fill_opacity)
+    # 设置样式：无边框，有填充
+    sub_graph.set_stroke(width=0)
+    sub_graph.set_fill(fill_color, fill_opacity)
 
-        return sub_graph
+    return sub_graph
 
 
 class Axes(VGroup, CoordinateSystem):
+    """坐标轴类，继承自VGroup（向量对象组）和CoordinateSystem（坐标系）"""
+    # 默认轴配置
     default_axis_config: dict = dict()
+    # 默认X轴配置
     default_x_axis_config: dict = dict()
+    # 默认Y轴配置（数字标签方向向左）
     default_y_axis_config: dict = dict(line_to_number_direction=LEFT)
 
     def __init__(
@@ -719,37 +817,60 @@ class Axes(VGroup, CoordinateSystem):
         unit_size: float = 1.0,
         **kwargs
     ):
-        CoordinateSystem.__init__(self, x_range, y_range, **kwargs)
+        """
+        初始化坐标轴
+        
+        参数:
+            x_range: X轴范围(x_min, x_max, step)
+            y_range: Y轴范围(y_min, y_max, step)
+            axis_config: 通用轴配置
+            x_axis_config: X轴特定配置
+            y_axis_config: Y轴特定配置
+            height: Y轴长度
+            width: X轴长度
+            unit_size: 单位长度的像素大小
+            **kwargs: 传递给VGroup的参数
+        """
+        # 初始化父类CoordinateSystem
+        CoordinateSystem.__init__(self, x_range, y_range,** kwargs)
+        # 移除不需要的参数
         kwargs.pop("num_sampled_graph_points_per_tick", None)
+        # 初始化父类VGroup
         VGroup.__init__(self, **kwargs)
 
-        axis_config = dict(**axis_config, unit_size=unit_size)
+        # 合并轴配置（包含单位大小）
+        axis_config = dict(** axis_config, unit_size=unit_size)
+        # 创建X轴
         self.x_axis = self.create_axis(
             self.x_range,
+            # 合并配置：默认配置 → X轴默认 → 通用配置 → X轴特定
             axis_config=merge_dicts_recursively(
                 self.default_axis_config,
                 self.default_x_axis_config,
                 axis_config,
                 x_axis_config
             ),
-            length=width,
+            length=width,  # X轴长度
         )
+        # 创建Y轴
         self.y_axis = self.create_axis(
             self.y_range,
+            # 合并配置：默认配置 → Y轴默认 → 通用配置 → Y轴特定
             axis_config=merge_dicts_recursively(
                 self.default_axis_config,
                 self.default_y_axis_config,
                 axis_config,
                 y_axis_config
             ),
-            length=height,
+            length=height,  # Y轴长度
         )
+        # Y轴旋转90度（垂直方向），旋转中心为原点
         self.y_axis.rotate(90 * DEG, about_point=ORIGIN)
-        # Add as a separate group in case various other
-        # mobjects are added to self, as for example in
-        # NumberPlane below
+        # 将坐标轴组合成组（便于统一管理）
         self.axes = VGroup(self.x_axis, self.y_axis)
+        # 将坐标轴添加到当前对象
         self.add(*self.axes)
+        # 居中显示
         self.center()
 
     def create_axis(
@@ -758,38 +879,81 @@ class Axes(VGroup, CoordinateSystem):
         axis_config: dict,
         length: float | None
     ) -> NumberLine:
+        """
+        创建单个坐标轴（X轴或Y轴）
+        
+        参数:
+            range_terms: 轴范围
+            axis_config: 轴配置
+            length: 轴长度
+        返回:
+            坐标轴对象（NumberLine）
+        """
+        # 创建数轴对象
         axis = NumberLine(range_terms, width=length, **axis_config)
+        # 将轴的原点（0点）移动到场景原点
         axis.shift(-axis.n2p(0))
         return axis
 
     def coords_to_point(self, *coords: float | VectN) -> Vect3 | Vect3Array:
+        """
+        将坐标值转换为场景中的点
+        
+        参数:
+            *coords: 坐标值（x, y, ...）
+        返回:
+            场景中的点坐标
+        """
+        # 获取原点在场景中的位置
         origin = self.x_axis.number_to_point(0)
+        # 计算各轴坐标对应的场景位置并求和
         return origin + sum(
             axis.number_to_point(coord) - origin
             for axis, coord in zip(self.get_axes(), coords)
         )
 
     def point_to_coords(self, point: Vect3 | Vect3Array) -> tuple[float | VectN, ...]:
+        """
+        将场景中的点转换为坐标值
+        
+        参数:
+            point: 场景中的点
+        返回:
+            对应的坐标值元组
+        """
         return tuple([
-            axis.point_to_number(point)
+            axis.point_to_number(point)  # 每个轴上的坐标值
             for axis in self.get_axes()
         ])
 
     def get_axes(self) -> VGroup:
+        """获取坐标轴组"""
         return self.axes
 
     def get_all_ranges(self) -> list[Sequence[float]]:
+        """获取所有轴的范围"""
         return [self.x_range, self.y_range]
 
     def add_coordinate_labels(
         self,
         x_values: Iterable[float] | None = None,
         y_values: Iterable[float] | None = None,
-        excluding: Iterable[float] = [0],
-        **kwargs
+        excluding: Iterable[float] = [0],** kwargs
     ) -> VGroup:
+        """
+        为坐标轴添加坐标标签
+        
+        参数:
+            x_values: X轴要标记的数值
+            y_values: Y轴要标记的数值
+            excluding: 排除不标记的数值（默认排除0）
+            **kwargs: 传递给轴标记方法的参数
+        返回:
+            包含所有标签的VGroup对象
+        """
         axes = self.get_axes()
         self.coordinate_labels = VGroup()
+        # 为每个轴添加标签
         for axis, values in zip(axes, [x_values, y_values]):
             labels = axis.add_numbers(values, excluding=excluding, **kwargs)
             self.coordinate_labels.add(labels)
