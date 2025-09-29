@@ -91,25 +91,39 @@ from manimlib.utils.space_ops import get_norm
 # 用于处理LaTeX公式生成过程中的错误
 from manimlib.utils.tex_file_writing import LatexError
 
+# 从typing模块导入TYPE_CHECKING常量，用于类型检查时的条件导入
 from typing import TYPE_CHECKING
 
+# 当进行类型检查时（非运行时），导入Vect3类型用于类型注解
 if TYPE_CHECKING:
     from manimlib.typing import Vect3
 
 
+# 从manim配置中获取各种操作的按键绑定
+# 选择功能的按键
 SELECT_KEY = manim_config.key_bindings.select
+# 取消选择功能的按键
 UNSELECT_KEY = manim_config.key_bindings.unselect
+# 抓取（移动）功能的按键
 GRAB_KEY = manim_config.key_bindings.grab
+# 沿X轴抓取（移动）的按键
 X_GRAB_KEY = manim_config.key_bindings.x_grab
+# 沿Y轴抓取（移动）的按键
 Y_GRAB_KEY = manim_config.key_bindings.y_grab
+# 所有与抓取相关的按键列表
 GRAB_KEYS = [GRAB_KEY, X_GRAB_KEY, Y_GRAB_KEY]
+# 调整大小功能的按键（待实现）
 RESIZE_KEY = manim_config.key_bindings.resize  # TODO
+# 颜色调整功能的按键
 COLOR_KEY = manim_config.key_bindings.color
+# 信息显示功能的按键
 INFORMATION_KEY = manim_config.key_bindings.information
+# 光标功能的按键
 CURSOR_KEY = manim_config.key_bindings.cursor
 
-# For keyboard interactions
+# 用于键盘交互的配置
 
+# 方向键符号的ASCII码列表（左、上、右、下）
 ARROW_SYMBOLS: list[int] = [
     PygletWindowKeys.LEFT,
     PygletWindowKeys.UP,
@@ -117,55 +131,64 @@ ARROW_SYMBOLS: list[int] = [
     PygletWindowKeys.DOWN,
 ]
 
+# 所有修饰键（Ctrl、Command、Shift）的组合掩码
 ALL_MODIFIERS = PygletWindowKeys.MOD_CTRL | PygletWindowKeys.MOD_COMMAND | PygletWindowKeys.MOD_SHIFT
 
-# Note, a lot of the functionality here is still buggy and very much a work in progress.
+# 注意：这里的许多功能仍有bug，且大多处于开发中
 
 
 class InteractiveScene(Scene):
     """
-    To select mobjects on screen, hold ctrl and move the mouse to highlight a region,
-    or just tap ctrl to select the mobject under the cursor.
-
-    Pressing command + t will toggle between modes where you either select top level
-    mobjects part of the scene, or low level pieces.
-
-    Hold 'g' to grab the selection and move it around
-    Hold 'h' to drag it constrained in the horizontal direction
-    Hold 'v' to drag it constrained in the vertical direction
-    Hold 't' to resize selection, adding 'shift' to resize with respect to a corner
-
-    Command + 'c' copies the ids of selections to clipboard
-    Command + 'v' will paste either:
-        - The copied mobject
-        - A Tex mobject based on copied LaTeX
-        - A Text mobject based on copied Text
-    Command + 'z' restores selection back to its original state
-    Command + 's' saves the selected mobjects to file
+    交互场景类，继承自基础场景类Scene
+    
+    使用说明：
+    - 要选择屏幕上的物体，按住Ctrl键并移动鼠标来框选区域，
+      或直接点击Ctrl键选择光标下的物体
+    - 按Command + t可切换选择模式：选择场景中的顶级物体或底层组件
+    - 按住'g'键可抓取选中的物体并移动
+    - 按住'h'键可沿水平方向拖动选中物体
+    - 按住'v'键可沿垂直方向拖动选中物体
+    - 按住't'键可调整选中物体大小，配合Shift键可相对于角落调整大小
+    - Command + 'c'将选中物体的ID复制到剪贴板
+    - Command + 'v'可粘贴内容：
+        - 复制的物体
+        - 基于复制的LaTeX生成的Tex物体
+        - 基于复制的文本生成的Text物体
+    - Command + 'z'将选中物体恢复到原始状态
+    - Command + 's'将选中的物体保存到文件
     """
+    # 选中物体角落点的配置字典
     corner_dot_config = dict(
-        color=WHITE,
-        radius=0.05,
-        glow_factor=2.0,
+        color=WHITE,          # 颜色为白色
+        radius=0.05,          # 半径为0.05
+        glow_factor=2.0,      # 发光系数为2.0
     )
+    # 选择矩形的边框颜色
     selection_rectangle_stroke_color = WHITE
+    # 选择矩形的边框宽度
     selection_rectangle_stroke_width = 1.0
+    # 调色板颜色，使用MANIM默认颜色集
     palette_colors = MANIM_COLORS
+    # 选中物体的微调大小
     selection_nudge_size = 0.05
+    # 光标位置显示的配置
     cursor_location_config = dict(
-        font_size=24,
-        fill_color=GREY_C,
-        num_decimal_places=3,
+        font_size=24,         # 字体大小24
+        fill_color=GREY_C,    # 填充色为灰色C
+        num_decimal_places=3, # 保留3位小数
     )
+    # 时间标签的配置
     time_label_config = dict(
-        font_size=24,
-        fill_color=GREY_C,
-        num_decimal_places=1,
+        font_size=24,         # 字体大小24
+        fill_color=GREY_C,    # 填充色为灰色C
+        num_decimal_places=1, # 保留1位小数
     )
+    # 十字准星的宽度
     crosshair_width = 0.2
+    # 十字准星的样式配置
     crosshair_style = dict(
-        stroke_color=GREY_A,
-        stroke_width=[3, 0, 3],
+        stroke_color=GREY_A,  # 边框颜色为灰色A
+        stroke_width=[3, 0, 3], # 边框宽度（三个值分别对应不同部分）
     )
 
     def setup(self):
