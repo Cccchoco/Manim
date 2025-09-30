@@ -726,105 +726,184 @@ def nudge_selection(self, vect: np.ndarray, large: bool = False):
     # 按照指定方向和距离移动选中的对象
     self.selection.shift(nudge * vect)
 
-    # Key actions
-    def on_key_press(self, symbol: int, modifiers: int) -> None:
-        super().on_key_press(symbol, modifiers)
-        char = chr(symbol)
-        if char == SELECT_KEY and (modifiers & ALL_MODIFIERS) == 0:
-            self.enable_selection()
-        if char == UNSELECT_KEY:
-            self.clear_selection()
-        elif char in GRAB_KEYS and (modifiers & ALL_MODIFIERS) == 0:
-            self.prepare_grab()
-        elif char == RESIZE_KEY and (modifiers & PygletWindowKeys.MOD_SHIFT):
-            self.prepare_resizing(about_corner=((modifiers & PygletWindowKeys.MOD_SHIFT) > 0))
-        elif symbol == PygletWindowKeys.LSHIFT:
-            if self.window.is_key_pressed(ord("t")):
-                self.prepare_resizing(about_corner=True)
-        elif char == COLOR_KEY and (modifiers & ALL_MODIFIERS) == 0:
-            self.toggle_color_palette()
-        elif char == INFORMATION_KEY and (modifiers & ALL_MODIFIERS) == 0:
-            self.display_information()
-        elif char == "c" and (modifiers & (PygletWindowKeys.MOD_COMMAND | PygletWindowKeys.MOD_CTRL)):
-            self.copy_selection()
-        elif char == "v" and (modifiers & (PygletWindowKeys.MOD_COMMAND | PygletWindowKeys.MOD_CTRL)):
-            self.paste_selection()
-        elif char == "x" and (modifiers & (PygletWindowKeys.MOD_COMMAND | PygletWindowKeys.MOD_CTRL)):
-            self.copy_selection()
-            self.delete_selection()
-        elif symbol == PygletWindowKeys.BACKSPACE:
-            self.delete_selection()
-        elif char == "a" and (modifiers & (PygletWindowKeys.MOD_COMMAND | PygletWindowKeys.MOD_CTRL)):
-            self.clear_selection()
-            self.add_to_selection(*self.mobjects)
-        elif char == "g" and (modifiers & (PygletWindowKeys.MOD_COMMAND | PygletWindowKeys.MOD_CTRL)):
-            self.group_selection()
-        elif char == "g" and (modifiers & (PygletWindowKeys.MOD_COMMAND | PygletWindowKeys.MOD_CTRL | PygletWindowKeys.MOD_SHIFT)):
-            self.ungroup_selection()
-        elif char == "t" and (modifiers & (PygletWindowKeys.MOD_COMMAND | PygletWindowKeys.MOD_CTRL)):
-            self.toggle_selection_mode()
-        elif char == "d" and (modifiers & PygletWindowKeys.MOD_SHIFT):
-            self.copy_frame_positioning()
-        elif char == "c" and (modifiers & PygletWindowKeys.MOD_SHIFT):
-            self.copy_cursor_position()
-        elif symbol in ARROW_SYMBOLS:
-            self.nudge_selection(
-                vect=[LEFT, UP, RIGHT, DOWN][ARROW_SYMBOLS.index(symbol)],
-                large=(modifiers & PygletWindowKeys.MOD_SHIFT),
+    # 键盘操作相关方法
+def on_key_press(self, symbol: int, modifiers: int) -> None:
+    # 调用父类的键盘按下处理方法（确保基础功能正常）
+    super().on_key_press(symbol, modifiers)
+    # 将键盘按键编码转换为对应的字符（如按键1的symbol转换为'1'）
+    char = chr(symbol)
+    
+    # 1. 处理选择模式激活：按下"选择键"（SELECT_KEY，需提前定义）且无任何修饰键（Ctrl/Shift等）
+    if char == SELECT_KEY and (modifiers & ALL_MODIFIERS) == 0:
+        self.enable_selection()
+    
+    # 2. 处理取消选择：按下"取消选择键"（UNSELECT_KEY，需提前定义）
+    if char == UNSELECT_KEY:
+        self.clear_selection()
+    
+    # 3. 处理拖拽准备：按下"拖拽键"（GRAB_KEYS，需提前定义为键列表）且无任何修饰键
+    elif char in GRAB_KEYS and (modifiers & ALL_MODIFIERS) == 0:
+        self.prepare_grab()
+    
+    # 4. 处理缩放准备：按下"缩放键"（RESIZE_KEY，需提前定义）且按住Shift修饰键
+    elif char == RESIZE_KEY and (modifiers & PygletWindowKeys.MOD_SHIFT):
+        # 缩放参考点：根据是否按住Shift决定（此处条件判断冗余，因外层已判断Shift，实际始终为True）
+        self.prepare_resizing(about_corner=((modifiers & PygletWindowKeys.MOD_SHIFT) > 0))
+    
+    # 5. 处理Shift+T组合的缩放准备：按住Shift且按下T键
+    elif symbol == PygletWindowKeys.LSHIFT:
+        if self.window.is_key_pressed(ord("t")):
+            # 围绕角落进行缩放
+            self.prepare_resizing(about_corner=True)
+    
+    # 6. 处理颜色面板切换：按下"颜色键"（COLOR_KEY，需提前定义）且无任何修饰键
+    elif char == COLOR_KEY and (modifiers & ALL_MODIFIERS) == 0:
+        self.toggle_color_palette()
+    
+    # 7. 处理信息标签显示：按下"信息键"（INFORMATION_KEY，需提前定义）且无任何修饰键
+    elif char == INFORMATION_KEY and (modifiers & ALL_MODIFIERS) == 0:
+        self.display_information()
+    
+    # 8. 处理复制操作：Ctrl+C（Windows/Linux）或Command+C（Mac）
+    elif char == "c" and (modifiers & (PygletWindowKeys.MOD_COMMAND | PygletWindowKeys.MOD_CTRL)):
+        self.copy_selection()
+    
+    # 9. 处理粘贴操作：Ctrl+V（Windows/Linux）或Command+V（Mac）
+    elif char == "v" and (modifiers & (PygletWindowKeys.MOD_COMMAND | PygletWindowKeys.MOD_CTRL)):
+        self.paste_selection()
+    
+    # 10. 处理剪切操作：Ctrl+X（Windows/Linux）或Command+X（Mac）
+    elif char == "x" and (modifiers & (PygletWindowKeys.MOD_COMMAND | PygletWindowKeys.MOD_CTRL)):
+        self.copy_selection()  # 先复制选中对象
+        self.delete_selection()  # 再删除原选中对象
+    
+    # 11. 处理删除操作：按下Backspace键
+    elif symbol == PygletWindowKeys.BACKSPACE:
+        self.delete_selection()
+    
+    # 12. 处理全选操作：Ctrl+A（Windows/Linux）或Command+A（Mac）
+    elif char == "a" and (modifiers & (PygletWindowKeys.MOD_COMMAND | PygletWindowKeys.MOD_CTRL)):
+        self.clear_selection()  # 先清空现有选择
+        self.add_to_selection(*self.mobjects)  # 再选中场景中所有对象
+    
+    # 13. 处理组合操作：Ctrl+G（Windows/Linux）或Command+G（Mac）
+    elif char == "g" and (modifiers & (PygletWindowKeys.MOD_COMMAND | PygletWindowKeys.MOD_CTRL)):
+        self.group_selection()  # 将选中对象组合成一个组
+    
+    # 14. 处理解组操作：Ctrl+Shift+G（Windows/Linux）或Command+Shift+G（Mac）
+    elif char == "g" and (modifiers & (PygletWindowKeys.MOD_COMMAND | PygletWindowKeys.MOD_CTRL | PygletWindowKeys.MOD_SHIFT)):
+        self.ungroup_selection()  # 将选中的组解组为单个对象
+    
+    # 15. 处理选择模式切换：Ctrl+T（Windows/Linux）或Command+T（Mac）
+    elif char == "t" and (modifiers & (PygletWindowKeys.MOD_COMMAND | PygletWindowKeys.MOD_CTRL)):
+        self.toggle_selection_mode()  # 切换"仅选顶层对象"/"可选子对象"模式
+    
+    # 16. 处理帧定位复制：Shift+D（需提前实现copy_frame_positioning方法）
+    elif char == "d" and (modifiers & PygletWindowKeys.MOD_SHIFT):
+        self.copy_frame_positioning()
+    
+    # 17. 处理光标位置复制：Shift+C（需提前实现copy_cursor_position方法）
+    elif char == "c" and (modifiers & PygletWindowKeys.MOD_SHIFT):
+        self.copy_cursor_position()
+    
+    # 18. 处理方向键微调：按下方向键（ARROW_SYMBOLS需提前定义为方向键symbol列表）
+    elif symbol in ARROW_SYMBOLS:
+        # 映射方向键到向量：LEFT→左向量，UP→上向量，RIGHT→右向量，DOWN→下向量
+        vect = [LEFT, UP, RIGHT, DOWN][ARROW_SYMBOLS.index(symbol)]
+        # 按住Shift时为"大幅度微调"，否则为"小幅度微调"
+        self.nudge_selection(
+            vect=vect,
+            large=(modifiers & PygletWindowKeys.MOD_SHIFT),
+        )
+    
+    # 19. 处理十字光标显示/隐藏：按下"光标键"（CURSOR_KEY，需提前定义）
+    if char == CURSOR_KEY:
+        if self.crosshair in self.mobjects:  # 如果十字光标已在场景中
+            self.remove(self.crosshair)  # 隐藏十字光标
+        else:  # 如果十字光标不在场景中
+            self.add(self.crosshair)  # 显示十字光标
+    
+    # 20. 选择模式下强制显示十字光标：按下"选择键"时
+    if char == SELECT_KEY:
+        self.add(self.crosshair)
+    
+    # 21. 处理状态保存：按下拖拽/缩放相关键时，保存当前场景状态（用于撤销等）
+    if char in [GRAB_KEY, X_GRAB_KEY, Y_GRAB_KEY, RESIZE_KEY]:
+        self.save_state()
+
+
+def on_key_release(self, symbol: int, modifiers: int) -> None:
+    # 调用父类的键盘释放处理方法（确保基础功能正常）
+    super().on_key_release(symbol, modifiers)
+    # 将键盘按键编码转换为对应的字符
+    char = chr(symbol)
+    
+    # 1. 处理选择结束：释放"选择键"时，收集框选范围内的对象
+    if char == SELECT_KEY:
+        self.gather_new_selection()
+    
+    # 2. 处理拖拽结束：释放"拖拽键"时，关闭拖拽模式
+    if char in GRAB_KEYS:
+        self.is_grabbing = False
+    
+    # 3. 处理信息标签隐藏：释放"信息键"时，隐藏信息标签
+    elif char == INFORMATION_KEY:
+        self.display_information(False)
+    
+    # 4. 处理Shift+缩放键的释放：释放Shift且仍按住缩放键时，切换为"围绕中心缩放"
+    elif symbol == PygletWindowKeys.LSHIFT and self.window.is_key_pressed(ord(RESIZE_KEY)):
+        self.prepare_resizing(about_corner=False)
+
+
+# 鼠标操作相关方法
+def handle_grabbing(self, point: Vect3):
+    # 计算目标位置：鼠标当前位置减去"鼠标到选中对象中心的偏移量"（保持拖拽时相对位置不变）
+    diff = point - self.mouse_to_selection
+    
+    # 1. 普通拖拽：按住"拖拽键"（GRAB_KEY，需提前定义）时，整体移动选中对象
+    if self.window.is_key_pressed(ord(GRAB_KEY)):
+        self.selection.move_to(diff)
+    
+    # 2. X轴拖拽：按住"X轴拖拽键"（X_GRAB_KEY，需提前定义）时，仅沿X轴移动选中对象
+    elif self.window.is_key_pressed(ord(X_GRAB_KEY)):
+        self.selection.set_x(diff[0])  # 只修改X坐标，Y/Z坐标保持不变
+    
+    # 3. Y轴拖拽：按住"Y轴拖拽键"（Y_GRAB_KEY，需提前定义）时，仅沿Y轴移动选中对象
+    elif self.window.is_key_pressed(ord(Y_GRAB_KEY)):
+        self.selection.set_y(diff[1])  # 只修改Y坐标，X/Z坐标保持不变
+
+
+def handle_resizing(self, point: Vect3):
+    # 如果未初始化缩放参考点（未执行prepare_resizing），则不处理缩放
+    if not hasattr(self, "scale_about_point"):
+        return
+    
+    # 计算当前鼠标位置到缩放参考点的向量（用于计算缩放比例）
+    vect = point - self.scale_about_point
+    
+    # 1. 非等比缩放：按住Ctrl键时，分别沿X/Y轴独立缩放
+    if self.window.is_key_pressed(PygletWindowKeys.LCTRL):
+        # 遍历X轴（0）和Y轴（1），分别计算缩放比例
+        for i in (0, 1):
+            # 缩放比例 = 当前鼠标向量在该轴的长度 / 初始参考向量在该轴的长度
+            scalar = vect[i] / self.scale_ref_vect[i]
+            # 按计算的比例缩放选中对象（仅沿当前轴）
+            self.selection.rescale_to_fit(
+                scalar * [self.scale_ref_width, self.scale_ref_height][i],  # 目标尺寸 = 比例 × 初始尺寸
+                dim=i,  # 缩放维度（0=X轴，1=Y轴）
+                about_point=self.scale_about_point,  # 围绕参考点缩放
+                stretch=True,  # 允许拉伸（不保持宽高比）
             )
-        # Adding crosshair
-        if char == CURSOR_KEY:
-            if self.crosshair in self.mobjects:
-                self.remove(self.crosshair)
-            else:
-                self.add(self.crosshair)
-        if char == SELECT_KEY:
-            self.add(self.crosshair)
-
-        # Conditions for saving state
-        if char in [GRAB_KEY, X_GRAB_KEY, Y_GRAB_KEY, RESIZE_KEY]:
-            self.save_state()
-
-    def on_key_release(self, symbol: int, modifiers: int) -> None:
-        super().on_key_release(symbol, modifiers)
-        if chr(symbol) == SELECT_KEY:
-            self.gather_new_selection()
-        if chr(symbol) in GRAB_KEYS:
-            self.is_grabbing = False
-        elif chr(symbol) == INFORMATION_KEY:
-            self.display_information(False)
-        elif symbol == PygletWindowKeys.LSHIFT and self.window.is_key_pressed(ord(RESIZE_KEY)):
-            self.prepare_resizing(about_corner=False)
-
-    # Mouse actions
-    def handle_grabbing(self, point: Vect3):
-        diff = point - self.mouse_to_selection
-        if self.window.is_key_pressed(ord(GRAB_KEY)):
-            self.selection.move_to(diff)
-        elif self.window.is_key_pressed(ord(X_GRAB_KEY)):
-            self.selection.set_x(diff[0])
-        elif self.window.is_key_pressed(ord(Y_GRAB_KEY)):
-            self.selection.set_y(diff[1])
-
-    def handle_resizing(self, point: Vect3):
-        if not hasattr(self, "scale_about_point"):
-            return
-        vect = point - self.scale_about_point
-        if self.window.is_key_pressed(PygletWindowKeys.LCTRL):
-            for i in (0, 1):
-                scalar = vect[i] / self.scale_ref_vect[i]
-                self.selection.rescale_to_fit(
-                    scalar * [self.scale_ref_width, self.scale_ref_height][i],
-                    dim=i,
-                    about_point=self.scale_about_point,
-                    stretch=True,
-                )
-        else:
-            scalar = get_norm(vect) / get_norm(self.scale_ref_vect)
-            self.selection.set_width(
-                scalar * self.scale_ref_width,
-                about_point=self.scale_about_point
-            )
+    
+    # 2. 等比缩放：未按Ctrl键时，保持宽高比缩放
+    else:
+        # 缩放比例 = 当前鼠标向量的模长 / 初始参考向量的模长（确保X/Y轴缩放比例一致）
+        scalar = get_norm(vect) / get_norm(self.scale_ref_vect)
+        # 按比例修改选中对象的宽度（高度会自动等比调整）
+        self.selection.set_width(
+            scalar * self.scale_ref_width,  # 目标宽度 = 比例 × 初始宽度
+            about_point=self.scale_about_point  # 围绕参考点缩放
+        )
 
     def handle_sweeping_selection(self, point: Vect3):
         mob = self.point_to_mobject(
