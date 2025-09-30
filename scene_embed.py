@@ -163,54 +163,58 @@ class InteractiveSceneEmbed:
         # 为所有Exception类型注册自定义异常处理函数（覆盖默认处理）
         self.shell.set_custom_exc((Exception,), custom_exc)
 
-    def reload_scene(self, embed_line: int | None = None) -> None:
-        """
-        Reloads the scene just like the `manimgl` command would do with the
-        same arguments that were provided for the initial startup. This allows
-        for quick iteration during scene development since we don't have to exit
-        the IPython kernel and re-run the `manimgl` command again. The GUI stays
-        open during the reload.
+def reload_scene(self, embed_line: int | None = None) -> None:
+    """
+    像`manimgl`命令一样重新加载场景，使用与初始启动时相同的参数。
+    这允许在场景开发过程中快速迭代，因为我们不必退出IPython内核并重新运行`manimgl`命令。
+    重新加载期间GUI保持打开状态。
 
-        If `embed_line` is provided, the scene will be reloaded at that line
-        number. This corresponds to the `linemarker` param of the
-        `extract_scene.insert_embed_line_to_module()` method.
+    如果提供了`embed_line`，场景将在该行号重新加载。这对应于
+    `extract_scene.insert_embed_line_to_module()`方法的`linemarker`参数。
 
-        Before reload, the scene is cleared and the entire state is reset, such
-        that we can start from a clean slate. This is taken care of by the
-        run_scenes function in __main__.py, which will catch the error raised by the
-        `exit_raise` magic command that we invoke here.
+    重新加载前，场景会被清空且整个状态被重置，以便我们可以从干净的状态开始。
+    这由__main__.py中的run_scenes函数处理，该函数将捕获我们在此处调用的
+    `exit_raise`魔术命令所引发的错误。
 
-        Note that we cannot define a custom exception class for this error,
-        since the IPython kernel will swallow any exception. While we can catch
-        such an exception in our custom exception handler registered with the
-        `set_custom_exc` method, we cannot break out of the IPython shell by
-        this means.
-        """
-        # Update the global run configuration.
-        run_config = manim_config.run
-        run_config.is_reload = True
-        if embed_line:
-            run_config.embed_line = embed_line
+    注意，我们不能为此错误定义自定义异常类，因为IPython内核会吞噬任何异常。
+    虽然我们可以在通过`set_custom_exc`方法注册的自定义异常处理程序中捕获此类异常，
+    但我们无法通过这种方式跳出IPython shell。
+    """
+    # 更新全局运行配置
+    run_config = manim_config.run
+    # 标记为重新加载状态
+    run_config.is_reload = True
+    # 如果提供了嵌入行号，则设置配置中的嵌入行号
+    if embed_line:
+        run_config.embed_line = embed_line
 
-        print("Reloading...")
-        self.shell.run_line_magic("exit_raise", "")
+    # 打印重新加载提示信息
+    print("Reloading...")
+    # 执行IPython的exit_raise魔术命令，触发场景重新加载
+    self.shell.run_line_magic("exit_raise", "")
 
-    def auto_reload(self):
-        """Enables reload the shell's module before all calls"""
-        def pre_cell_func(*args, **kwargs):
-            new_mod = ModuleLoader.get_module(self.shell.user_module.__file__, is_during_reload=True)
-            self.shell.user_ns.update(vars(new_mod))
+def auto_reload(self):
+    """在所有调用之前启用shell模块的自动重新加载"""
+    # 定义单元格执行前的回调函数
+    def pre_cell_func(*args, **kwargs):
+        # 重新加载shell的用户模块（标记为在重新加载期间）
+        new_mod = ModuleLoader.get_module(self.shell.user_module.__file__, is_during_reload=True)
+        # 使用新模块的变量更新shell的命名空间
+        self.shell.user_ns.update(vars(new_mod))
 
-        self.shell.events.register("pre_run_cell", pre_cell_func)
+    # 将回调函数注册到IPython的"pre_run_cell"事件（单元格执行前触发）
+    self.shell.events.register("pre_run_cell", pre_cell_func)
 
-    def checkpoint_paste(
-        self,
-        skip: bool = False,
-        record: bool = False,
-        progress_bar: bool = True
-    ):
-        with self.scene.temp_config_change(skip, record, progress_bar):
-            self.checkpoint_manager.checkpoint_paste(self.shell, self.scene)
+def checkpoint_paste(
+    self,
+    skip: bool = False,
+    record: bool = False,
+    progress_bar: bool = True
+):
+    # 使用临时配置更改上下文管理器，设置场景的临时配置
+    with self.scene.temp_config_change(skip, record, progress_bar):
+        # 调用检查点管理器的checkpoint_paste方法，将检查点内容粘贴到场景
+        self.checkpoint_manager.checkpoint_paste(self.shell, self.scene)
 
 
 class CheckpointManager:
