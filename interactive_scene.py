@@ -546,121 +546,185 @@ def enable_interaction(self, *mobjects: Mobject):
     self.regenerate_selection_search_set()
     # Functions for keyboard actions
 
-    def copy_selection(self):
-        names = []
-        shell = get_ipython()
-        for mob in self.selection:
-            name = str(id(mob))
-            if shell is None:
-                continue
-            for key, value in shell.user_ns.items():
-                if mob is value:
-                    name = key
-            names.append(name)
-        pyperclip.copy(", ".join(names))
+def copy_selection(self):
+    # 存储选中对象的名称列表
+    names = []
+    # 获取当前的IPython shell（用于查找对象的变量名）
+    shell = get_ipython()
+    # 遍历每个选中的对象
+    for mob in self.selection:
+        # 默认使用对象的ID作为名称
+        name = str(id(mob))
+        # 如果IPython shell存在（即在Jupyter环境中）
+        if shell is None:
+            continue
+        # 遍历用户命名空间中的变量，查找引用该对象的变量名
+        for key, value in shell.user_ns.items():
+            if mob is value:
+                name = key  # 找到后使用变量名作为名称
+        # 将找到的名称添加到列表
+        names.append(name)
+    # 将名称列表用逗号分隔后复制到剪贴板
+    pyperclip.copy(", ".join(names))
 
-    def paste_selection(self):
-        clipboard_str = pyperclip.paste()
-        # Try pasting a mobject
+def paste_selection(self):
+    # 从剪贴板获取内容
+    clipboard_str = pyperclip.paste()
+    # 尝试粘贴为图形对象（Mobject）
+    try:
+        # 将剪贴板内容按逗号分割并转换为整数（假设是对象ID）
+        ids = map(int, clipboard_str.split(","))
+        # 根据ID查找对应的对象
+        mobs = map(self.id_to_mobject, ids)
+        # 复制找到的对象（过滤掉None）
+        mob_copies = [m.copy() for m in mobs if m is not None]
+        # 清除当前选中状态
+        self.clear_selection()
+        # 播放淡入动画，新复制的对象从1.5倍缩放状态淡入
+        self.play(*(
+            FadeIn(mc, run_time=0.5, scale=1.5)
+            for mc in mob_copies
+        ))
+        # 将新复制的对象添加到选中状态
+        self.add_to_selection(*mob_copies)
+        return  # 成功粘贴对象后返回
+    except ValueError:
+        pass  # 如果无法解析为ID，则继续尝试其他格式
+    # 否则，将剪贴板内容视为Tex或普通文本
+    # 检查是否包含LaTeX相关符号（作为判断是否为LaTeX的简单方法）
+    if set("\\^=+").intersection(clipboard_str):
         try:
-            ids = map(int, clipboard_str.split(","))
-            mobs = map(self.id_to_mobject, ids)
-            mob_copies = [m.copy() for m in mobs if m is not None]
-            self.clear_selection()
-            self.play(*(
-                FadeIn(mc, run_time=0.5, scale=1.5)
-                for mc in mob_copies
-            ))
-            self.add_to_selection(*mob_copies)
-            return
-        except ValueError:
-            pass
-        # Otherwise, treat as tex or text
-        if set("\\^=+").intersection(clipboard_str):  # Proxy to text for LaTeX
-            try:
-                new_mob = Tex(clipboard_str)
-            except LatexError:
-                return
-        else:
-            new_mob = Text(clipboard_str)
-        self.clear_selection()
-        self.add(new_mob)
-        self.add_to_selection(new_mob)
+            # 尝试创建LaTeX对象
+            new_mob = Tex(clipboard_str)
+        except LatexError:
+            return  # LaTeX解析失败则返回
+    else:
+        # 创建普通文本对象
+        new_mob = Text(clipboard_str)
+    # 清除当前选中状态
+    self.clear_selection()
+    # 将新创建的文本对象添加到场景
+    self.add(new_mob)
+    # 将新对象设为选中状态
+    self.add_to_selection(new_mob)
 
-    def delete_selection(self):
-        self.remove(*self.selection)
-        self.clear_selection()
+def delete_selection(self):
+    # 从场景中移除所有选中的对象
+    self.remove(*self.selection)
+    # 清除选中状态
+    self.clear_selection()
 
-    def enable_selection(self):
-        self.is_selecting = True
-        self.add(self.selection_rectangle)
-        self.selection_rectangle.fixed_corner = self.frame.to_fixed_frame_point(
-            self.mouse_point.get_center()
-        )
+def enable_selection(self):
+    # 开启选择模式
+    self.is_selecting = True
+    # 将选择矩形框添加到场景
+    self.add(self.selection_rectangle)
+    # 设置选择矩形框的起始点为当前鼠标位置（转换为固定框架坐标）
+    self.selection_rectangle.fixed_corner = self.frame.to_fixed_frame_point(
+        self.mouse_point.get_center()
+    )
 
-    def gather_new_selection(self):
-        self.is_selecting = False
-        if self.selection_rectangle in self.mobjects:
-            self.remove(self.selection_rectangle)
-            additions = []
-            for mob in reversed(self.get_selection_search_set()):
-                if self.selection_rectangle.is_touching(mob):
-                    additions.append(mob)
-                    if self.selection_rectangle.get_arc_length() < 1e-2:
-                        break
-            self.toggle_from_selection(*additions)
+def gather_new_selection(self):
+    # 关闭选择模式
+    self.is_selecting = False
+    # 如果选择矩形框在场景中
+    if self.selection_rectangle in self.mobjects:
+        # 从场景中移除选择矩形框
+        self.remove(self.selection_rectangle)
+        # 存储要添加到选中状态的对象
+        additions = []
+        # 反向遍历可选择对象集合（确保先选中顶层对象）
+        for mob in reversed(self.get_selection_search_set()):
+            # 检查对象是否与选择矩形框接触
+            if self.selection_rectangle.is_touching(mob):
+                additions.append(mob)
+                # 如果选择矩形框几乎没有长度（近似为点选），只选一个对象
+                if self.selection_rectangle.get_arc_length() < 1e-2:
+                    break
+        # 切换这些对象的选中状态（选中→取消，未选中→选中）
+        self.toggle_from_selection(*additions)
 
-    def prepare_grab(self):
-        mp = self.mouse_point.get_center()
-        self.mouse_to_selection = mp - self.selection.get_center()
-        self.is_grabbing = True
+def prepare_grab(self):
+    # 获取当前鼠标位置
+    mp = self.mouse_point.get_center()
+    # 计算鼠标到选中对象中心的偏移量（用于拖拽时保持相对位置）
+    self.mouse_to_selection = mp - self.selection.get_center()
+    # 开启拖拽模式
+    self.is_grabbing = True
 
-    def prepare_resizing(self, about_corner=False):
-        center = self.selection.get_center()
-        mp = self.mouse_point.get_center()
-        if about_corner:
-            self.scale_about_point = self.selection.get_corner(center - mp)
-        else:
-            self.scale_about_point = center
-        self.scale_ref_vect = mp - self.scale_about_point
-        self.scale_ref_width = self.selection.get_width()
-        self.scale_ref_height = self.selection.get_height()
+def prepare_resizing(self, about_corner=False):
+    # 获取选中对象的中心位置
+    center = self.selection.get_center()
+    # 获取当前鼠标位置
+    mp = self.mouse_point.get_center()
+    if about_corner:
+        # 如果围绕角落缩放，计算缩放参考点（选中对象的角落）
+        self.scale_about_point = self.selection.get_corner(center - mp)
+    else:
+        # 否则围绕中心缩放
+        self.scale_about_point = center
+    # 计算鼠标到缩放参考点的向量（用于计算缩放比例）
+    self.scale_ref_vect = mp - self.scale_about_point
+    # 记录当前选中对象的宽度和高度（作为缩放参考）
+    self.scale_ref_width = self.selection.get_width()
+    self.scale_ref_height = self.selection.get_height()
 
-    def toggle_color_palette(self):
-        if len(self.selection) == 0:
-            return
-        if self.color_palette not in self.mobjects:
-            self.save_state()
-            self.add(self.color_palette)
-        else:
-            self.remove(self.color_palette)
+def toggle_color_palette(self):
+    # 如果没有选中对象，则不执行任何操作
+    if len(self.selection) == 0:
+        return
+    # 如果颜色面板不在场景中
+    if self.color_palette not in self.mobjects:
+        # 保存当前状态
+        self.save_state()
+        # 添加颜色面板到场景
+        self.add(self.color_palette)
+    else:
+        # 否则从场景中移除颜色面板
+        self.remove(self.color_palette)
 
-    def display_information(self, show=True):
-        if show:
-            self.add(self.information_label)
-        else:
-            self.remove(self.information_label)
+def display_information(self, show=True):
+    if show:
+        # 显示信息标签（坐标和时间）
+        self.add(self.information_label)
+    else:
+        # 隐藏信息标签
+        self.remove(self.information_label)
 
-    def group_selection(self):
-        group = self.get_group(*self.selection)
-        self.add(group)
-        self.clear_selection()
-        self.add_to_selection(group)
+def group_selection(self):
+    # 将当前选中的所有对象组合成一个组
+    group = self.get_group(*self.selection)
+    # 将组添加到场景
+    self.add(group)
+    # 清除当前选中状态
+    self.clear_selection()
+    # 将新创建的组设为选中状态
+    self.add_to_selection(group)
 
-    def ungroup_selection(self):
-        pieces = []
-        for mob in list(self.selection):
-            self.remove(mob)
-            pieces.extend(list(mob))
-        self.clear_selection()
-        self.add(*pieces)
-        self.add_to_selection(*pieces)
+def ungroup_selection(self):
+    # 存储解组后的所有子对象
+    pieces = []
+    # 遍历当前选中的每个对象（通常是一个组）
+    for mob in list(self.selection):
+        # 从场景中移除该对象
+        self.remove(mob)
+        # 将对象的所有子对象添加到列表
+        pieces.extend(list(mob))
+    # 清除当前选中状态
+    self.clear_selection()
+    # 将解组后的子对象添加到场景
+    self.add(*pieces)
+    # 将这些子对象设为选中状态
+    self.add_to_selection(*pieces)
 
-    def nudge_selection(self, vect: np.ndarray, large: bool = False):
-        nudge = self.selection_nudge_size
-        if large:
-            nudge *= 10
-        self.selection.shift(nudge * vect)
+def nudge_selection(self, vect: np.ndarray, large: bool = False):
+    # 获取基础移动距离
+    nudge = self.selection_nudge_size
+    if large:
+        # 如果是大幅度移动，距离乘以10
+        nudge *= 10
+    # 按照指定方向和距离移动选中的对象
+    self.selection.shift(nudge * vect)
 
     # Key actions
     def on_key_press(self, symbol: int, modifiers: int) -> None:
