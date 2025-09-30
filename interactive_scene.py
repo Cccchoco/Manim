@@ -191,122 +191,175 @@ class InteractiveScene(Scene):
         stroke_width=[3, 0, 3], # 边框宽度（三个值分别对应不同部分）
     )
 
-    def setup(self):
-        self.selection = Group()
-        self.selection_highlight = self.get_selection_highlight()
-        self.selection_rectangle = self.get_selection_rectangle()
-        self.crosshair = self.get_crosshair()
-        self.information_label = self.get_information_label()
-        self.color_palette = self.get_color_palette()
-        self.unselectables = [
-            self.selection,
-            self.selection_highlight,
-            self.selection_rectangle,
-            self.crosshair,
-            self.information_label,
-            self.camera.frame
-        ]
-        self.select_top_level_mobs = True
-        self.regenerate_selection_search_set()
+def setup(self):
+    # 创建一个组用于存储选中的对象
+    self.selection = Group()
+    # 获取选中对象的高亮显示效果
+    self.selection_highlight = self.get_selection_highlight()
+    # 获取选择矩形框（用于框选操作）
+    self.selection_rectangle = self.get_selection_rectangle()
+    # 获取十字光标
+    self.crosshair = self.get_crosshair()
+    # 获取信息标签（显示坐标和时间等信息）
+    self.information_label = self.get_information_label()
+    # 获取颜色选择面板
+    self.color_palette = self.get_color_palette()
+    # 定义不可选中的对象列表
+    self.unselectables = [
+        self.selection,               # 选中对象组本身不可再被选中
+        self.selection_highlight,     # 高亮显示效果不可被选中
+        self.selection_rectangle,     # 选择矩形框不可被选中
+        self.crosshair,               # 十字光标不可被选中
+        self.information_label,       # 信息标签不可被选中
+        self.camera.frame             # 相机框架不可被选中
+    ]
+    # 设置是否只选中顶层的可移动对象
+    self.select_top_level_mobs = True
+    # 重新生成用于选择操作的搜索集合
+    self.regenerate_selection_search_set()
 
-        self.is_selecting = False
-        self.is_grabbing = False
+    # 初始化选择状态：未处于选择状态
+    self.is_selecting = False
+    # 初始化拖拽状态：未处于拖拽状态
+    self.is_grabbing = False
 
-        self.add(self.selection_highlight)
+    # 将选中对象的高亮显示效果添加到场景中
+    self.add(self.selection_highlight)
 
-    def get_selection_rectangle(self):
-        rect = Rectangle(
-            stroke_color=self.selection_rectangle_stroke_color,
-            stroke_width=self.selection_rectangle_stroke_width,
-        )
-        rect.fix_in_frame()
-        rect.fixed_corner = ORIGIN
-        rect.add_updater(self.update_selection_rectangle)
-        return rect
+def get_selection_rectangle(self):
+    # 创建一个矩形框，用于框选操作
+    rect = Rectangle(
+        stroke_color=self.selection_rectangle_stroke_color,  # 设置边框颜色
+        stroke_width=self.selection_rectangle_stroke_width,  # 设置边框宽度
+    )
+    # 固定矩形框在框架中，不随相机移动
+    rect.fix_in_frame()
+    # 设置矩形框的固定角为原点（通常是左上角）
+    rect.fixed_corner = ORIGIN
+    # 为矩形框添加更新器，当状态变化时更新显示
+    rect.add_updater(self.update_selection_rectangle)
+    return rect
 
-    def update_selection_rectangle(self, rect: Rectangle):
-        p1 = rect.fixed_corner
-        p2 = self.frame.to_fixed_frame_point(self.mouse_point.get_center())
-        rect.set_points_as_corners([
-            p1, np.array([p2[0], p1[1], 0]),
-            p2, np.array([p1[0], p2[1], 0]),
-            p1,
-        ])
-        return rect
+def update_selection_rectangle(self, rect: Rectangle):
+    # 获取矩形框的起始点（固定角）
+    p1 = rect.fixed_corner
+    # 将鼠标当前位置转换为固定框架中的坐标点
+    p2 = self.frame.to_fixed_frame_point(self.mouse_point.get_center())
+    # 根据起始点和鼠标位置设置矩形框的四个角点，形成矩形
+    rect.set_points_as_corners([
+        p1, np.array([p2[0], p1[1], 0]),  # 右上角点
+        p2, np.array([p1[0], p2[1], 0]),  # 左下角点
+        p1,                               # 回到起始点，闭合矩形
+    ])
+    return rect
 
-    def get_selection_highlight(self):
-        result = Group()
-        result.tracked_mobjects = []
-        result.add_updater(self.update_selection_highlight)
-        return result
+def get_selection_highlight(self):
+    # 创建一个组用于显示选中对象的高亮效果
+    result = Group()
+    # 存储被跟踪的（即被选中的）可移动对象
+    result.tracked_mobjects = []
+    # 为高亮效果添加更新器，当选中对象变化时更新显示
+    result.add_updater(self.update_selection_highlight)
+    return result
 
-    def update_selection_highlight(self, highlight: Mobject):
-        if set(highlight.tracked_mobjects) == set(self.selection):
-            return
+def update_selection_highlight(self, highlight: Mobject):
+    # 如果当前跟踪的对象与选中的对象相同，则不需要更新
+    if set(highlight.tracked_mobjects) == set(self.selection):
+        return
 
-        # Otherwise, refresh contents of highlight
-        highlight.tracked_mobjects = list(self.selection)
-        highlight.set_submobjects([
-            self.get_highlight(mob)
-            for mob in self.selection
-        ])
-        try:
-            index = min((
-                i for i, mob in enumerate(self.mobjects)
-                for sm in self.selection
-                if sm in mob.get_family()
-            ))
-            self.mobjects.remove(highlight)
-            self.mobjects.insert(index - 1, highlight)
-        except ValueError:
-            pass
-
-    def get_crosshair(self):
-        lines = VMobject().replicate(2)
-        lines[0].set_points([LEFT, ORIGIN, RIGHT])
-        lines[1].set_points([UP, ORIGIN, DOWN])
-        crosshair = VGroup(*lines)
-
-        crosshair.set_width(self.crosshair_width)
-        crosshair.set_style(**self.crosshair_style)
-        crosshair.set_animating_status(True)
-        crosshair.fix_in_frame()
-        return crosshair
-
-    def get_color_palette(self):
-        palette = VGroup(*(
-            Square(fill_color=color, fill_opacity=1, side_length=1)
-            for color in self.palette_colors
+    # 否则，刷新高亮效果的内容
+    highlight.tracked_mobjects = list(self.selection)
+    # 为每个选中的对象创建高亮显示，并设置为高亮组的子对象
+    highlight.set_submobjects([
+        self.get_highlight(mob) for mob in self.selection
+    ])
+    try:
+        # 找到选中对象在场景对象列表中的最小索引位置
+        index = min((
+            i for i, mob in enumerate(self.mobjects)
+            for sm in self.selection
+            if sm in mob.get_family()
         ))
-        palette.set_stroke(width=0)
-        palette.arrange(RIGHT, buff=0.5)
-        palette.set_width(FRAME_WIDTH - 0.5)
-        palette.to_edge(DOWN, buff=SMALL_BUFF)
-        palette.fix_in_frame()
-        return palette
+        # 将高亮效果从场景中移除后重新插入到合适位置（选中对象下方）
+        self.mobjects.remove(highlight)
+        self.mobjects.insert(index - 1, highlight)
+    except ValueError:
+        # 如果找不到索引（如无选中对象），则不做处理
+        pass
 
-    def get_information_label(self):
-        loc_label = VGroup(*(
-            DecimalNumber(**self.cursor_location_config)
-            for n in range(3)
-        ))
+def get_crosshair(self):
+    # 创建一个向量对象并复制一份，用于组成十字光标
+    lines = VMobject().replicate(2)
+    # 设置第一条线为水平线（从左到右穿过原点）
+    lines[0].set_points([LEFT, ORIGIN, RIGHT])
+    # 设置第二条线为垂直线（从上到下穿过原点）
+    lines[1].set_points([UP, ORIGIN, DOWN])
+    # 将两条线组合成十字光标
+    crosshair = VGroup(*lines)
 
-        def update_coords(loc_label):
-            for mob, coord in zip(loc_label, self.mouse_point.get_location()):
-                mob.set_value(coord)
-            loc_label.arrange(RIGHT, buff=loc_label.get_height())
-            loc_label.to_corner(DR, buff=SMALL_BUFF)
-            loc_label.fix_in_frame()
-            return loc_label
+    # 设置十字光标的宽度
+    crosshair.set_width(self.crosshair_width)
+    # 应用十字光标的样式（颜色、线宽等）
+    crosshair.set_style(** self.crosshair_style)
+    # 设置十字光标为动画状态
+    crosshair.set_animating_status(True)
+    # 固定十字光标在框架中，随鼠标移动
+    crosshair.fix_in_frame()
+    return crosshair
 
-        loc_label.add_updater(update_coords)
+def get_color_palette(self):
+    # 创建一个颜色选择面板，由多个填充了不同颜色的正方形组成
+    palette = VGroup(*(
+        Square(fill_color=color, fill_opacity=1, side_length=1)
+        for color in self.palette_colors  # 从预设的调色板颜色列表中获取颜色
+    ))
+    # 去除正方形的边框
+    palette.set_stroke(width=0)
+    # 水平排列颜色方块，设置间距
+    palette.arrange(RIGHT, buff=0.5)
+    # 设置面板宽度为框架宽度减去0.5的边距
+    palette.set_width(FRAME_WIDTH - 0.5)
+    # 将面板放置在底部边缘，设置小间距
+    palette.to_edge(DOWN, buff=SMALL_BUFF)
+    # 固定面板在框架中，不随相机移动
+    palette.fix_in_frame()
+    return palette
 
-        time_label = DecimalNumber(0, **self.time_label_config)
-        time_label.to_corner(DL, buff=SMALL_BUFF)
-        time_label.fix_in_frame()
-        time_label.add_updater(lambda m, dt: m.increment_value(dt))
+def get_information_label(self):
+    # 创建一个向量组，包含三个十进制数字显示框，用于显示坐标
+    loc_label = VGroup(*(
+        DecimalNumber(**self.cursor_location_config)  # 应用坐标显示的配置
+        for n in range(3)  # 三个坐标值：x, y, z
+    ))
 
-        return VGroup(loc_label, time_label)
+    # 定义坐标标签的更新函数
+    def update_coords(loc_label):
+        # 遍历坐标标签和鼠标位置的三个坐标值
+        for mob, coord in zip(loc_label, self.mouse_point.get_location()):
+            # 更新数字显示框的值为当前坐标
+            mob.set_value(coord)
+        # 水平排列坐标标签，间距为标签高度
+        loc_label.arrange(RIGHT, buff=loc_label.get_height())
+        # 将坐标标签放置在右下角，设置小间距
+        loc_label.to_corner(DR, buff=SMALL_BUFF)
+        # 固定坐标标签在框架中
+        loc_label.fix_in_frame()
+        return loc_label
+
+    # 为坐标标签添加更新器，实时更新显示
+    loc_label.add_updater(update_coords)
+
+    # 创建一个十进制数字显示框，用于显示时间
+    time_label = DecimalNumber(0,** self.time_label_config)  # 应用时间显示的配置
+    # 将时间标签放置在左下角，设置小间距
+    time_label.to_corner(DL, buff=SMALL_BUFF)
+    # 固定时间标签在框架中
+    time_label.fix_in_frame()
+    # 为时间标签添加更新器，每帧增加流逝的时间
+    time_label.add_updater(lambda m, dt: m.increment_value(dt))
+
+    # 将坐标标签和时间标签组合成一个信息标签组并返回
+    return VGroup(loc_label, time_label)
 
     # Overrides
     def get_state(self):
