@@ -906,70 +906,101 @@ def handle_resizing(self, point: Vect3):
         )
 
     def handle_sweeping_selection(self, point: Vect3):
-        mob = self.point_to_mobject(
-            point,
-            search_set=self.get_selection_search_set(),
-            buff=SMALL_BUFF
-        )
-        if mob is not None:
-            self.add_to_selection(mob)
+    # 根据鼠标位置查找对应的可选择对象
+    # point: 当前鼠标位置
+    # search_set: 限定搜索范围为可选择对象集合
+    # buff: 搜索缓冲区域大小（SMALL_BUFF为预设小值）
+    mob = self.point_to_mobject(
+        point,
+        search_set=self.get_selection_search_set(),
+        buff=SMALL_BUFF
+    )
+    # 如果找到对象，则将其添加到选中集合
+    if mob is not None:
+        self.add_to_selection(mob)
 
-    def choose_color(self, point: Vect3):
-        # Search through all mobject on the screen, not just the palette
-        to_search = [
-            sm
-            for mobject in self.mobjects
-            for sm in mobject.family_members_with_points()
-            if mobject not in self.unselectables
-        ]
-        mob = self.point_to_mobject(point, to_search)
-        if mob is not None:
-            self.selection.set_color(mob.get_color())
-        self.remove(self.color_palette)
+def choose_color(self, point: Vect3):
+    # 准备搜索范围：场景中所有带点的子对象（排除不可交互对象）
+    to_search = [
+        sm
+        for mobject in self.mobjects  # 遍历场景中所有对象
+        for sm in mobject.family_members_with_points()  # 获取每个对象的所有带点子对象
+        if mobject not in self.unselectables  # 排除不可交互对象
+    ]
+    # 根据鼠标位置在搜索范围内查找对象（通常是颜色面板中的颜色块）
+    mob = self.point_to_mobject(point, to_search)
+    # 如果找到对象，将选中的对象颜色设置为该对象的颜色
+    if mob is not None:
+        self.selection.set_color(mob.get_color())
+    # 无论是否选择颜色，都移除颜色面板
+    self.remove(self.color_palette)
 
-    def on_mouse_motion(self, point: Vect3, d_point: Vect3) -> None:
-        super().on_mouse_motion(point, d_point)
-        self.crosshair.move_to(self.frame.to_fixed_frame_point(point))
-        if self.is_grabbing:
-            self.handle_grabbing(point)
-        elif self.window.is_key_pressed(ord(RESIZE_KEY)):
-            self.handle_resizing(point)
-        elif self.window.is_key_pressed(ord(SELECT_KEY)) and self.window.is_key_pressed(PygletWindowKeys.LSHIFT):
-            self.handle_sweeping_selection(point)
+def on_mouse_motion(self, point: Vect3, d_point: Vect3) -> None:
+    # 调用父类的鼠标移动处理方法
+    super().on_mouse_motion(point, d_point)
+    # 将十字光标移动到鼠标当前位置（转换为固定框架坐标）
+    self.crosshair.move_to(self.frame.to_fixed_frame_point(point))
+    
+    # 如果处于拖拽模式，处理选中对象的拖拽
+    if self.is_grabbing:
+        self.handle_grabbing(point)
+    # 如果按住缩放键（RESIZE_KEY），处理选中对象的缩放
+    elif self.window.is_key_pressed(ord(RESIZE_KEY)):
+        self.handle_resizing(point)
+    # 如果同时按住选择键（SELECT_KEY）和Shift键，处理扫选（鼠标划过即选中）
+    elif self.window.is_key_pressed(ord(SELECT_KEY)) and self.window.is_key_pressed(PygletWindowKeys.LSHIFT):
+        self.handle_sweeping_selection(point)
 
-    def on_mouse_drag(
-        self,
-        point: Vect3,
-        d_point: Vect3,
-        buttons: int,
-        modifiers: int
-    ) -> None:
-        super().on_mouse_drag(point, d_point, buttons, modifiers)
-        self.crosshair.move_to(self.frame.to_fixed_frame_point(point))
+def on_mouse_drag(
+    self,
+    point: Vect3,
+    d_point: Vect3,
+    buttons: int,
+    modifiers: int
+) -> None:
+    # 调用父类的鼠标拖拽处理方法
+    super().on_mouse_drag(point, d_point, buttons, modifiers)
+    # 在拖拽过程中，保持十字光标跟随鼠标位置（转换为固定框架坐标）
+    self.crosshair.move_to(self.frame.to_fixed_frame_point(point))
 
-    def on_mouse_release(self, point: Vect3, button: int, mods: int) -> None:
-        super().on_mouse_release(point, button, mods)
-        if self.color_palette in self.mobjects:
-            self.choose_color(point)
-        else:
-            self.clear_selection()
+def on_mouse_release(self, point: Vect3, button: int, mods: int) -> None:
+    # 调用父类的鼠标释放处理方法
+    super().on_mouse_release(point, button, mods)
+    # 如果颜色面板在场景中（即处于颜色选择状态）
+    if self.color_palette in self.mobjects:
+        # 根据鼠标释放位置选择颜色
+        self.choose_color(point)
+    else:
+        # 否则清除当前选中状态
+        self.clear_selection()
 
-    # Copying code to recreate state
-    def copy_frame_positioning(self):
-        frame = self.frame
-        center = frame.get_center()
-        height = frame.get_height()
-        angles = frame.get_euler_angles()
+# 复制用于重建状态的代码
+def copy_frame_positioning(self):
+    # 获取当前框架（通常是相机视图框架）
+    frame = self.frame
+    # 获取框架中心坐标
+    center = frame.get_center()
+    # 获取框架高度
+    height = frame.get_height()
+    # 获取框架的欧拉角（旋转角度）
+    angles = frame.get_euler_angles()
 
-        call = f"reorient("
-        theta, phi, gamma = (angles / DEG).astype(int)
-        call += f"{theta}, {phi}, {gamma}"
-        if any(center != 0):
-            call += f", {tuple(np.round(center, 2))}"
-        if height != FRAME_HEIGHT:
-            call += ", {:.2f}".format(height)
-        call += ")"
-        pyperclip.copy(call)
+    # 构建reorient函数调用字符串（用于重建当前视图状态）
+    call = f"reorient("
+    # 将弧度转换为度并取整
+    theta, phi, gamma = (angles / DEG).astype(int)
+    call += f"{theta}, {phi}, {gamma}"  # 添加旋转角度参数
+    # 如果中心坐标不为原点，添加中心坐标参数
+    if any(center != 0):
+        call += f", {tuple(np.round(center, 2))}"
+    # 如果高度不等于默认框架高度，添加高度参数
+    if height != FRAME_HEIGHT:
+        call += ", {:.2f}".format(height)
+    call += ")"  # 闭合函数调用
+    # 将构建的函数调用复制到剪贴板
+    pyperclip.copy(call)
 
-    def copy_cursor_position(self):
-        pyperclip.copy(str(tuple(self.mouse_point.get_center().round(2))))
+def copy_cursor_position(self):
+    # 获取鼠标当前位置并四舍五入保留两位小数，转换为元组字符串
+    # 将该字符串复制到剪贴板（用于快速获取光标坐标）
+    pyperclip.copy(str(tuple(self.mouse_point.get_center().round(2))))
