@@ -1,22 +1,34 @@
+# 启用Python 3.7+的注解向前兼容支持，允许在类型注解中使用尚未定义的类
 from __future__ import annotations
 
+# 导入numpy库，用于数值计算和数组操作
 import numpy as np
 
+# 从Manim的动画模块导入基础动画类Animation
 from manimlib.animation.animation import Animation
+# 从变换动画模块导入Transform类，用于对象间的变换动画
 from manimlib.animation.transform import Transform
+# 从常量模块导入原点坐标常量ORIGIN（通常为(0, 0, 0)）
 from manimlib.constants import ORIGIN
+# 导入矢量图形对象类VMobject，用于处理可矢量动画的图形
 from manimlib.mobject.types.vectorized_mobject import VMobject
+# 导入组合对象类Group，用于管理多个Mobject的集合
 from manimlib.mobject.mobject import Group
+# 从贝塞尔曲线工具模块导入插值函数interpolate
 from manimlib.utils.bezier import interpolate
+# 从速率函数模块导入there_and_back函数，一种往返式的速率曲线
 from manimlib.utils.rate_functions import there_and_back
 
+# 导入类型检查相关模块
 from typing import TYPE_CHECKING
 
+# 条件导入，仅在类型检查时执行（运行时不生效）
+# 用于解决循环导入问题，同时提供完整的类型提示支持
 if TYPE_CHECKING:
-    from typing import Callable
-    from manimlib.mobject.mobject import Mobject
-    from manimlib.scene.scene import Scene
-    from manimlib.typing import Vect3
+    from typing import Callable  # 导入Callable类型，用于注解可调用对象
+    from manimlib.mobject.mobject import Mobject  # 导入基础可移动对象类Mobject
+    from manimlib.scene.scene import Scene  # 导入场景类Scene
+    from manimlib.typing import Vect3  # 导入三维向量类型Vect3
 
 
 class Fade(Transform):
