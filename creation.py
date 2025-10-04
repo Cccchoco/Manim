@@ -305,15 +305,21 @@ class Write(DrawBorderThenFill):
 
 
 class ShowIncreasingSubsets(Animation):
+    """
+    一个用于逐步显示组中子对象的动画类
+    继承自Animation基类，实现按顺序逐个显示组内元素的效果
+    """
     def __init__(
         self,
         group: Mobject,
         int_func: Callable[[float], float] = np.round,
-        suspend_mobject_updating: bool = False,
-        **kwargs
+        suspend_mobject_updating: bool = False,** kwargs
     ):
+        # 存储组中所有子对象的列表
         self.all_submobs = list(group.submobjects)
+        # 用于将浮点数转换为整数的函数，默认使用numpy的四舍五入
         self.int_func = int_func
+        # 调用父类构造函数，传入组对象和其他参数
         super().__init__(
             group,
             suspend_mobject_updating=suspend_mobject_updating,
@@ -321,54 +327,97 @@ class ShowIncreasingSubsets(Animation):
         )
 
     def interpolate_mobject(self, alpha: float) -> None:
+        """根据动画进度更新组中显示的子对象"""
+        # 获取子对象的总数
         n_submobs = len(self.all_submobs)
+        # 应用速率函数处理动画进度（alpha范围为0到1）
         alpha = self.rate_func(alpha)
+        # 根据进度计算当前应显示的子对象数量索引
+        # alpha * n_submobs将进度映射到0到n_submobs范围，再转换为整数
         index = int(self.int_func(alpha * n_submobs))
+        # 更新显示的子对象列表
         self.update_submobject_list(index)
 
     def update_submobject_list(self, index: int) -> None:
+        """根据索引更新组中显示的子对象"""
+        # 设置组只显示前index个子对象（切片操作[:index]）
         self.mobject.set_submobjects(self.all_submobs[:index])
 
 
 class ShowSubmobjectsOneByOne(ShowIncreasingSubsets):
+    """
+    一个逐个显示组中子对象的动画类，继承自ShowIncreasingSubsets
+    与父类不同，该类每次只显示一个子对象，而不是累积显示所有子对象
+    """
     def __init__(
         self,
         group: Mobject,
         int_func: Callable[[float], float] = np.ceil,
         **kwargs
     ):
+        # 调用父类构造函数，使用np.ceil作为默认的整数转换函数
+        # np.ceil确保进度到达阈值时向上取整，保证每个对象完整显示
         super().__init__(group, int_func=int_func, **kwargs)
 
     def update_submobject_list(self, index: int) -> None:
+        """
+        重写父类方法，实现每次只显示一个子对象的逻辑
+        而非累积显示所有之前的子对象
+        """
+        # 将索引限制在有效范围内[0, 子对象总数-1]
+        # 防止索引越界，确保即使计算出的index超出范围也能正常工作
         index = int(clip(index, 0, len(self.all_submobs) - 1))
+        
+        # 当索引为0时，不显示任何子对象
         if index == 0:
             self.mobject.set_submobjects([])
+        # 当索引大于0时，只显示对应位置的一个子对象
+        # index-1是因为索引从1开始对应第一个子对象
         else:
             self.mobject.set_submobjects([self.all_submobs[index - 1]])
 
 
 class AddTextWordByWord(ShowIncreasingSubsets):
+    """
+    一个逐词显示文本的动画类，继承自ShowIncreasingSubsets
+    专门用于StringMobject，实现文本内容按单词逐个出现的累积显示效果
+    """
     def __init__(
         self,
         string_mobject: StringMobject,
-        time_per_word: float = 0.2,
-        run_time: float = -1.0, # If negative, it will be recomputed with time_per_word
-        rate_func: Callable[[float], float] = linear,
+        time_per_word: float = 0.2,  # 每个单词的显示时间
+        run_time: float = -1.0,      # 总动画时间，负数表示自动计算
+        rate_func: Callable[[float], float] = linear,  # 速率函数，默认匀速
         **kwargs
     ):
+        # 确保输入对象是StringMobject类型（Manim中处理文本的对象）
         assert isinstance(string_mobject, StringMobject)
+        
+        # 将文本对象按单词分组，构建分组的mobject
         grouped_mobject = string_mobject.build_groups()
+        
+        # 如果未指定总运行时间（为负数），则根据单词数量和每个单词的时间计算总时间
         if run_time < 0:
             run_time = time_per_word * len(grouped_mobject)
+        
+        # 调用父类构造函数，传入分组对象和动画参数
         super().__init__(
             grouped_mobject,
             run_time=run_time,
-            rate_func=rate_func,
-            **kwargs
+            rate_func=rate_func,** kwargs
         )
+        
+        # 保存原始文本对象的引用
         self.string_mobject = string_mobject
 
     def clean_up_from_scene(self, scene: Scene) -> None:
+        """
+        动画结束后从场景中清理临时对象，添加最终文本对象
+        重写父类方法，确保场景中最终显示的是完整文本对象
+        """
+        # 从场景中移除动画过程中使用的分组对象
         scene.remove(self.mobject)
+        
+        # 如果不是移除动画（即普通的显示动画），则将完整文本对象添加到场景
         if not self.is_remover():
             scene.add(self.string_mobject)
