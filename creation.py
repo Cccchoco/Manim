@@ -215,49 +215,92 @@ class DrawBorderThenFill(Animation):
         outline: VMobject,
         alpha: float
     ) -> None:
+    # 使用整数插值将alpha值(0-1)映射到0和1两个状态，index为状态索引，subalpha为该状态内的进度
+    # 当alpha在0-0.5时，index=0；在0.5-1时，index=1
         index, subalpha = integer_interpolate(0, 2, alpha)
 
+    # 当状态切换到1（即alpha超过0.5）且当前子对象尚未更新状态时
         if index == 1 and self.sm_to_index[hash(submob)] == 0:
-            # First time crossing over
+        # 首次进入填充阶段时，将子对象的数据设置为轮廓对象的数据
             submob.set_data(outline.data)
-            self.sm_to_index[hash(submob)] = 1
+        # 更新子对象的状态索引，标记为已进入填充阶段
+        self.sm_to_index[hash(submob)] = 1
 
+    # 若处于第一个阶段（alpha < 0.5）：绘制边框
         if index == 0:
+        # 让子对象部分显示轮廓，从0到subalpha的进度逐步显示完整轮廓
             submob.pointwise_become_partial(outline, 0, subalpha)
+    # 若处于第二个阶段（alpha >= 0.5）：填充颜色
         else:
+        # 在轮廓和原始状态之间插值过渡，实现从边框到填充的动画效果
             submob.interpolate(outline, start, subalpha)
 
 
 class Write(DrawBorderThenFill):
+    """
+    一个用于实现"书写"效果的动画类，继承自DrawBorderThenFill
+    能够模拟手写过程，先逐笔绘制轮廓再填充颜色，常用于文字或复杂图形的展示
+    """
     def __init__(
         self,
         vmobject: VMobject,
-        run_time: float = -1,  # If negative, this will be reassigned
-        lag_ratio: float = -1,  # If negative, this will be reassigned
+        run_time: float = -1,  # 若为负数，将在后续重新分配
+        lag_ratio: float = -1,  # 若为负数，将在后续重新分配
         rate_func: Callable[[float], float] = linear,
         stroke_color: ManimColor = None,
         **kwargs
     ):
+        # 如果未指定描边颜色，则使用矢量对象本身的颜色
         if stroke_color is None:
             stroke_color = vmobject.get_color()
+        
+        # 计算包含点的子对象数量（用于动态调整动画参数）
         family_size = len(vmobject.family_members_with_points())
+        
+        # 调用父类DrawBorderThenFill的构造函数
         super().__init__(
             vmobject,
+            # 计算运行时间：根据子对象数量和用户指定的run_time确定
             run_time=self.compute_run_time(family_size, run_time),
+            # 计算延迟比例：控制多个子对象动画的先后顺序间隔
             lag_ratio=self.compute_lag_ratio(family_size, lag_ratio),
+            # 设置速率函数为线性（默认匀速动画）
             rate_func=rate_func,
-            stroke_color=stroke_color,
-            **kwargs
+            # 传递描边颜色参数
+            stroke_color=stroke_color,** kwargs
         )
 
     def compute_run_time(self, family_size: int, run_time: float):
+        """
+    计算动画运行时间
+    根据子对象数量和用户指定的运行时间确定最终动画时长
+    
+    参数:
+        family_size: 包含点的子对象数量
+        run_time: 用户指定的运行时间，负数表示使用自动计算值
+    """
+        # 如果用户未指定有效运行时间（为负数）
         if run_time < 0:
+             # 子对象数量少于15个时，运行时间为1秒，否则为2秒
             return 1 if family_size < 15 else 2
+        # 如果用户指定了有效运行时间，则直接使用该值
         return run_time
 
     def compute_lag_ratio(self, family_size: int, lag_ratio: float):
+        """
+    计算延迟比例
+    控制多个子对象动画的先后启动间隔，使动画更自然
+    
+    参数:
+        family_size: 包含点的子对象数量
+        lag_ratio: 用户指定的延迟比例，负数表示使用自动计算值
+    """
+        # 如果用户未指定有效延迟比例（为负数）
         if lag_ratio < 0:
+            # 计算延迟比例：取(4/(子对象数量+1))和0.2中的较小值
+            # 确保延迟不会过大，同时随对象复杂度动态调整
             return min(4.0 / (family_size + 1.0), 0.2)
+        # 如果用户指定了有效延迟比例，则直接使用该值
         return lag_ratio
 
 
