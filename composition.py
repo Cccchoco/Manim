@@ -107,18 +107,38 @@ def begin(self) -> None:
         anim.finish()
 
     def clean_up_from_scene(self, scene: Scene) -> None:
+        """
+        从场景中清理所有子动画的临时对象
+        确保动画结束后场景状态正确
+    """
+        # 遍历所有子动画，调用它们的clean_up_from_scene方法
         for anim in self.animations:
             anim.clean_up_from_scene(scene)
 
     def update_mobjects(self, dt: float) -> None:
+        """
+    更新所有子动画中的可移动对象（mobjects）
+    通常在每一帧被调用，用于处理动画过程中的状态更新
+    
+    参数:
+        dt: 从上一帧到当前帧的时间间隔（秒）
+    """
+        # 遍历所有子动画，调用它们的update_mobjects方法
         for anim in self.animations:
             anim.update_mobjects(dt)
 
     def calculate_max_end_time(self) -> None:
+        """
+    计算所有子动画的最大结束时间
+    用于确定整个动画组的总运行时间
+    """
+        # 从所有动画的时间三元组中提取结束时间，取最大值作为最大结束时间
+        # anims_with_timings格式为(动画对象, 开始时间, 结束时间)
         self.max_end_time = max(
             (awt[2] for awt in self.anims_with_timings),
-            default=0,
+            default=0,# 如果没有动画，默认最大结束时间为0
         )
+        # 如果未指定动画组的运行时间（为负数），则使用最大结束时间作为总运行时间
         if self.run_time < 0:
             self.run_time = self.max_end_time
 
@@ -127,32 +147,65 @@ def begin(self) -> None:
         Creates a list of triplets of the form
         (anim, start_time, end_time)
         """
+        """
+    创建带有时间信息的动画列表，确定每个子动画的开始和结束时间
+    
+    参数:
+        lag_ratio: 动画之间的延迟比例，控制多个动画的启动间隔
+                   0表示所有动画同时开始，1表示前一个动画完全结束后下一个才开始
+    """
+         # 初始化动画时间三元组列表
         self.anims_with_timings = []
+        # 当前时间指针，用于计算每个动画的开始时间
         curr_time = 0
+        # 遍历所有子动画
         for anim in self.animations:
+            # 当前动画的开始时间为当前时间指针
             start_time = curr_time
+            # 当前动画的结束时间为开始时间加上动画自身的运行时间
             end_time = start_time + anim.get_run_time()
+            # 将动画及其时间信息添加到列表
             self.anims_with_timings.append(
                 (anim, start_time, end_time)
             )
+            # 计算下一个动画的开始时间
+            # 根据lag_ratio在当前动画的开始和结束时间之间插值
+            # lag_ratio=0时，下一个动画立即开始；lag_ratio=1时，等当前动画结束后才开始
             # Start time of next animation is based on the lag_ratio
             curr_time = interpolate(
                 start_time, end_time, lag_ratio
             )
 
     def interpolate(self, alpha: float) -> None:
+        """
+    根据动画组的整体进度，更新所有子动画的进度
+    
+    参数:
+        alpha: 动画组的整体进度（0表示开始，1表示结束）
+    """
         # Note, if the run_time of AnimationGroup has been
         # set to something other than its default, these
         # times might not correspond to actual times,
         # e.g. of the surrounding scene.  Instead they'd
         # be a rescaled version.  But that's okay!
+        # 注意：如果动画组的run_time被设置为非默认值，
+        # 这些时间可能不对应实际场景时间，而是经过缩放的版本，
+        # 但这没关系！
+    
+        # 将整体进度转换为实际时间（基于最大结束时间）
         time = alpha * self.max_end_time
+        # 遍历所有带时间信息的动画
         for anim, start_time, end_time in self.anims_with_timings:
+            # 计算当前动画的持续时间
             anim_time = end_time - start_time
             if anim_time == 0:
+                # 持续时间为0的动画直接使用0作为进度
                 sub_alpha = 0
             else:
+                # 计算当前动画的相对进度（0到1之间）
+                # 使用clip确保进度不会超出有效范围
                 sub_alpha = clip((time - start_time) / anim_time, 0, 1)
+            # 更新子动画的进度
             anim.interpolate(sub_alpha)
 
 
