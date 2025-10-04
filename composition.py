@@ -210,61 +210,107 @@ def begin(self) -> None:
 
 
 class Succession(AnimationGroup):
+    """
+    一个按顺序执行动画的类，继承自AnimationGroup
+    与普通动画组不同，此类确保动画严格按顺序执行，一个完成后再开始下一个
+    """
     def __init__(
         self,
         *animations: Animation,
-        lag_ratio: float = 1.0,
+        lag_ratio: float = 1.0,  # 延迟比例固定为1.0，确保动画按顺序执行
         **kwargs
     ):
+        # 调用父类构造函数，强制设置lag_ratio为1.0
+        # 这保证了下一个动画在上一个完全结束后才开始
         super().__init__(*animations, lag_ratio=lag_ratio, **kwargs)
 
     def begin(self) -> None:
+        """动画开始时的初始化工作"""
+        # 确保至少有一个动画要执行
         assert len(self.animations) > 0
+        # 设置第一个动画为当前活动动画
         self.active_animation = self.animations[0]
+        # 启动当前活动动画
         self.active_animation.begin()
 
     def finish(self) -> None:
+        """动画结束时的收尾工作"""
+        # 确保当前活动动画完全结束
         self.active_animation.finish()
 
     def update_mobjects(self, dt: float) -> None:
+        """更新当前活动动画中的可移动对象"""
+        # 只更新当前活动动画的对象（而非所有动画）
         self.active_animation.update_mobjects(dt)
 
     def interpolate(self, alpha: float) -> None:
+        """
+        根据整体进度更新动画状态
+        管理动画之间的切换，确保按顺序执行
+        """
+        # 将整体进度(0-1)映射到动画索引和该动画内的进度
+        # 例如：有3个动画，alpha=0.4会映射到index=1（第二个动画），subalpha=0.2
         index, subalpha = integer_interpolate(
             0, len(self.animations), alpha
         )
+        # 获取当前应该执行的动画
         animation = self.animations[index]
+        
+        # 如果当前动画不是活动动画（即需要切换动画）
         if animation is not self.active_animation:
+            # 结束上一个活动动画
             self.active_animation.finish()
+            # 开始新的动画
             animation.begin()
+            # 更新活动动画引用
             self.active_animation = animation
+        
+        # 更新当前活动动画的进度
         animation.interpolate(subalpha)
 
 
 class LaggedStart(AnimationGroup):
+    """
+    延迟启动的动画组类，继承自AnimationGroup
+    实现多个动画按一定延迟依次启动，但可能有重叠部分
+    与Succession的严格顺序执行不同，这里的动画会按比例延迟启动
+    """
     def __init__(
         self,
         *animations,
-        lag_ratio: float = DEFAULT_LAGGED_START_LAG_RATIO,
-        **kwargs
+        # 延迟比例，控制动画之间的启动间隔
+        # 默认值通常为0.05-0.1，使动画依次启动但有重叠
+        lag_ratio: float = DEFAULT_LAGGED_START_LAG_RATIO,** kwargs
     ):
+        # 调用父类构造函数，传入动画列表和延迟比例
         super().__init__(*animations, lag_ratio=lag_ratio, **kwargs)
 
 
 class LaggedStartMap(LaggedStart):
+    """
+    为组中每个子对象应用相同动画函数的延迟启动动画组
+    简化了对多个相似对象应用相同动画并设置延迟的流程
+    """
     def __init__(
         self,
         anim_func: Callable[[Mobject], Animation],
+        # 包含多个子对象的组
         group: Mobject,
+        # 总运行时间
         run_time: float = 2.0,
-        lag_ratio: float = DEFAULT_LAGGED_START_LAG_RATIO,
-        **kwargs
+        # 延迟比例
+        lag_ratio: float = DEFAULT_LAGGED_START_LAG_RATIO,** kwargs
     ):
+        # 处理动画关键字参数，移除可能存在的lag_ratio（由当前类控制）
         anim_kwargs = dict(kwargs)
         anim_kwargs.pop("lag_ratio", None)
+        
+        # 调用父类构造函数
         super().__init__(
+            # 为组中每个子对象创建动画实例
             *(anim_func(submob, **anim_kwargs) for submob in group),
             run_time=run_time,
             lag_ratio=lag_ratio,
+            # 传入原始组对象
             group=group
         )
