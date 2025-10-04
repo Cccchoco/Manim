@@ -1,13 +1,27 @@
+# 启用Python 3.7+的注解向前兼容支持，允许在类型注解中使用尚未定义的类
 from __future__ import annotations
 
+# 从Manim的动画模块导入基础动画类
 from manimlib.animation.animation import Animation
-from manimlib.constants import ORIGIN, OUT
-from manimlib.constants import PI, TAU
-from manimlib.utils.rate_functions import linear
-from manimlib.utils.rate_functions import smooth
 
+# 从常量模块导入常用的空间坐标和方向常量
+# ORIGIN：原点坐标 (0, 0, 0)
+# OUT：垂直于屏幕向外的方向向量
+from manimlib.constants import ORIGIN, OUT
+
+# 导入数学常量：PI(π)和TAU(τ=2π)
+from manimlib.constants import PI, TAU
+
+# 从速率函数工具模块导入常用的速率函数
+# linear：线性速率函数（匀速）
+# smooth：平滑速率函数（缓进缓出）
+from manimlib.utils.rate_functions import linear, smooth
+
+# 导入类型检查相关模块
 from typing import TYPE_CHECKING
 
+# 条件导入，仅在类型检查时执行（运行时不执行）
+# 用于解决循环导入问题，同时提供完整的类型提示
 if TYPE_CHECKING:
     import numpy as np
     from typing import Callable
