@@ -122,6 +122,10 @@ class Uncreate(ShowCreation):
 
 
 class DrawBorderThenFill(Animation):
+    """
+    一个自定义动画类，先绘制VMobject的边框，然后填充内部颜色
+    继承自Manim的Animation基类，实现了先描边后填充的动画效果
+    """
     def __init__(
         self,
         vmobject: VMobject,
@@ -130,45 +134,78 @@ class DrawBorderThenFill(Animation):
         stroke_width: float = 2.0,
         stroke_color: ManimColor = None,
         draw_border_animation_config: dict = {},
-        fill_animation_config: dict = {},
-        **kwargs
+        fill_animation_config: dict = {},** kwargs
     ):
+        # 确保传入的对象是VMobject类型（矢量对象）
         assert isinstance(vmobject, VMobject)
+        
+        # 为每个子对象创建哈希映射，用于跟踪动画状态
         self.sm_to_index = {hash(sm): 0 for sm in vmobject.get_family()}
+        
+        # 存储边框宽度、颜色等样式参数
         self.stroke_width = stroke_width
         self.stroke_color = stroke_color
+        
+        # 存储边框和填充动画的配置参数
         self.draw_border_animation_config = draw_border_animation_config
         self.fill_animation_config = fill_animation_config
+        
+        # 调用父类构造函数，传入基本动画参数
         super().__init__(
             vmobject,
             run_time=run_time,
             rate_func=rate_func,
             **kwargs
         )
+        
+        # 显式存储mobject引用（虽然父类也有，但这里更清晰）
         self.mobject = vmobject
 
     def begin(self) -> None:
+        """动画开始时的准备工作"""
+        # 设置对象为动画状态
         self.mobject.set_animating_status(True)
+        
+        # 创建轮廓对象（用于绘制边框）
         self.outline = self.get_outline()
+        
+        # 调用父类的begin方法，完成基础初始化
         super().begin()
+        
+        # 让原对象与轮廓对象保持样式一致
         self.mobject.match_style(self.outline)
 
     def finish(self) -> None:
+        """动画结束时的清理工作"""
+        # 调用父类的finish方法
         super().finish()
+        
+        # 刷新对象的连接角度，确保动画结束后显示正常
         self.mobject.refresh_joint_angles()
 
     def get_outline(self) -> VMobject:
+        """创建并返回用于绘制边框的轮廓对象"""
+        # 复制原始对象作为轮廓基础
         outline = self.mobject.copy()
+        
+        # 轮廓对象初始时不填充颜色
         outline.set_fill(opacity=0)
+        
+        # 为轮廓的所有子对象设置描边样式
         for sm in outline.family_members_with_points():
             sm.set_stroke(
+                # 使用指定颜色或原对象的描边颜色
                 color=self.stroke_color or sm.get_stroke_color(),
+                # 设置描边宽度
                 width=self.stroke_width,
+                # 保持与原对象相同的描边层级（前后关系）
                 behind=self.mobject.stroke_behind,
             )
         return outline
 
     def get_all_mobjects(self) -> list[Mobject]:
+        """返回动画中涉及的所有可移动对象"""
+        # 除了父类返回的对象外，还包括轮廓对象
         return [*super().get_all_mobjects(), self.outline]
 
     def interpolate_submobject(
