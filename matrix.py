@@ -117,80 +117,188 @@ class Matrix(VMobject):
             ])
         return result
 
-    def create_mobject_matrix(
+def create_mobject_matrix(
         self,
         matrix: GenericMatrixType,
         v_buff: float,
         h_buff: float,
-        aligned_corner: Vect3,
-        **element_config
+        aligned_corner: Vect3,** element_config
     ) -> VMobjectMatrixType:
-        """
-        Creates and organizes the matrix of mobjects
-        """
-        mob_matrix = [
-            [
-                self.element_to_mobject(element, **element_config)
-                for element in row
-            ]
-            for row in matrix
+    """
+    将输入的矩阵数据转换为由Manim可移动对象(VMobject)组成的矩阵，并排列它们的位置
+    
+    Args:
+        matrix: 原始矩阵数据，可以是数字、字符串或VMobject的二维序列
+        v_buff: 垂直方向的缓冲距离（行间距）
+        h_buff: 水平方向的缓冲距离（列间距）
+        aligned_corner: 元素对齐的参考角
+        **element_config: 传递给元素的配置参数
+        
+    Returns:
+        由VMobject组成的矩阵
+    """
+    # 将矩阵中的每个元素转换为VMobject
+    mob_matrix = [
+        [
+            # 调用element_to_mobject方法将单个元素转换为VMobject
+            self.element_to_mobject(element,** element_config)
+            for element in row
         ]
-        max_width = max(elem.get_width() for row in mob_matrix for elem in row)
-        max_height = max(elem.get_height() for row in mob_matrix for elem in row)
-        x_step = (max_width + h_buff) * RIGHT
-        y_step = (max_height + v_buff) * DOWN
-        for i, row in enumerate(mob_matrix):
-            for j, elem in enumerate(row):
-                elem.move_to(i * y_step + j * x_step, aligned_corner)
-        return mob_matrix
+        for row in matrix
+    ]
+    
+    # 计算所有元素中的最大宽度和最大高度，用于统一对齐
+    max_width = max(elem.get_width() for row in mob_matrix for elem in row)
+    max_height = max(elem.get_height() for row in mob_matrix for elem in row)
+    
+    # 计算每行和每列之间的步长（包含缓冲距离）
+    x_step = (max_width + h_buff) * RIGHT  # 水平方向步长（向右）
+    y_step = (max_height + v_buff) * DOWN  # 垂直方向步长（向下）
+    
+    # 排列矩阵中每个元素的位置
+    for i, row in enumerate(mob_matrix):
+        for j, elem in enumerate(row):
+            # 根据元素所在的行(i)和列(j)计算位置，并按指定角对齐
+            elem.move_to(i * y_step + j * x_step, aligned_corner)
+    
+    return mob_matrix
 
-    def element_to_mobject(self, element, **config) -> VMobject:
-        if isinstance(element, VMobject):
-            return element
-        elif isinstance(element, float | complex):
-            return DecimalNumber(element, **config)
-        else:
-            return Tex(str(element), **config)
+def element_to_mobject(self, element, **config) -> VMobject:
+    """
+    将单个元素转换为对应的Manim可移动对象(VMobject)
+    
+    Args:
+        element: 要转换的元素，可以是VMobject、数字或字符串
+        **config: 传递给生成的VMobject的配置参数
+        
+    Returns:
+        转换后的VMobject
+    """
+    if isinstance(element, VMobject):
+        # 如果元素已经是VMobject，直接返回
+        return element
+    elif isinstance(element, float | complex):
+        # 如果是数字（浮点数或复数），转换为DecimalNumber
+        return DecimalNumber(element,** config)
+    else:
+        # 其他类型（通常是字符串）转换为Tex对象
+        return Tex(str(element), **config)
 
-    def create_brackets(self, rows, v_buff: float, h_buff: float) -> VGroup:
-        brackets = Tex("".join((
-            R"\left[\begin{array}{c}",
-            *len(rows) * [R"\quad \\"],
-            R"\end{array}\right]",
-        )))
-        brackets.set_height(rows.get_height() + v_buff)
-        l_bracket = brackets[:len(brackets) // 2]
-        r_bracket = brackets[len(brackets) // 2:]
-        l_bracket.next_to(rows, LEFT, h_buff)
-        r_bracket.next_to(rows, RIGHT, h_buff)
-        return VGroup(l_bracket, r_bracket)
+def create_brackets(self, rows, v_buff: float, h_buff: float) -> VGroup:
+    """
+    创建矩阵两侧的括号
+    
+    Args:
+        rows: 包含矩阵所有行的VGroup
+        v_buff: 括号在垂直方向超出矩阵内容的距离
+        h_buff: 括号与矩阵内容之间的水平距离
+        
+    Returns:
+        包含左右括号的VGroup
+    """
+    # 创建包含矩阵括号的Tex对象
+    # 使用LaTeX语法生成与矩阵行数匹配的括号
+    brackets = Tex("".join((
+        R"\left[\begin{array}{c}",  # 左括号和矩阵环境开始
+        *len(rows) * [R"\quad \\"],  # 为每行添加一个占位符
+        R"\end{array}\right]",      # 矩阵环境结束和右括号
+    )))
+    
+    # 调整括号高度以匹配矩阵内容高度（加上垂直缓冲）
+    brackets.set_height(rows.get_height() + v_buff)
+    
+    # 将括号分为左半部分和右半部分
+    l_bracket = brackets[:len(brackets) // 2]  # 左括号
+    r_bracket = brackets[len(brackets) // 2:]  # 右括号
+    
+    # 定位左右括号到矩阵的两侧
+    l_bracket.next_to(rows, LEFT, h_buff)  # 左括号放在矩阵左侧
+    r_bracket.next_to(rows, RIGHT, h_buff) # 右括号放在矩阵右侧
+    
+    # 返回包含左右括号的VGroup
+    return VGroup(l_bracket, r_bracket)
 
-    def get_column(self, index: int):
-        if not 0 <= index < len(self.columns):
-            raise IndexError(f"Index {index} out of bound for matrix with {len(self.columns)} columns")
-        return self.columns[index]
+def get_column(self, index: int):
+    """
+    获取矩阵中指定索引的列
+    
+    Args:
+        index: 列的索引（从0开始）
+        
+    Returns:
+        包含该列所有元素的VGroup
+        
+    Raises:
+        IndexError: 如果索引超出有效范围
+    """
+    # 检查索引是否有效
+    if not 0 <= index < len(self.columns):
+        raise IndexError(f"索引 {index} 超出范围，矩阵共有 {len(self.columns)} 列")
+    return self.columns[index]
 
-    def get_row(self, index: int):
-        if not 0 <= index < len(self.rows):
-            raise IndexError(f"Index {index} out of bound for matrix with {len(self.rows)} rows")
-        return self.rows[index]
+def get_row(self, index: int):
+    """
+    获取矩阵中指定索引的行
+    
+    Args:
+        index: 行的索引（从0开始）
+        
+    Returns:
+        包含该行所有元素的VGroup
+        
+    Raises:
+        IndexError: 如果索引超出有效范围
+    """
+    # 检查索引是否有效
+    if not 0 <= index < len(self.rows):
+        raise IndexError(f"索引 {index} 超出范围，矩阵共有 {len(self.rows)} 行")
+    return self.rows[index]
 
-    def get_columns(self) -> VGroup:
-        return self.columns
+def get_columns(self) -> VGroup:
+    """
+    获取矩阵所有列的集合
+    
+    Returns:
+        包含所有列的VGroup
+    """
+    return self.columns
 
-    def get_rows(self) -> VGroup:
-        return self.rows
+def get_rows(self) -> VGroup:
+    """
+    获取矩阵所有行的集合
+    
+    Returns:
+        包含所有行的VGroup
+    """
+    return self.rows
 
-    def set_column_colors(self, *colors: ManimColor) -> Self:
-        columns = self.get_columns()
-        for color, column in zip(colors, columns):
-            column.set_color(color)
-        return self
+def set_column_colors(self, *colors: ManimColor) -> Self:
+    """
+    为矩阵的列依次设置颜色
+    
+    Args:
+        *colors: 为各列设置的颜色，与列按顺序对应
+        
+    Returns:
+        矩阵对象本身（支持方法链调用）
+    """
+    columns = self.get_columns()
+    # 为每列设置对应的颜色
+    for color, column in zip(colors, columns):
+        column.set_color(color)
+    return self
 
-    def add_background_to_entries(self) -> Self:
-        for mob in self.get_entries():
-            mob.add_background_rectangle()
-        return self
+def add_background_to_entries(self) -> Self:
+    """
+    为矩阵中的每个元素添加背景矩形
+    
+    Returns:
+        矩阵对象本身（支持方法链调用）
+    """
+    # 为每个元素添加背景矩形
+    for mob in self.get_entries():
+        mob.add_background_rectangle()
+    return self
 
     def swap_entry_for_dots(self, entry, dots):
         dots.move_to(entry)
