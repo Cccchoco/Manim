@@ -143,192 +143,343 @@ class Mobject(object):
             self.fix_in_frame()
 
     def __str__(self):
-        return self.__class__.__name__
+    """返回对象的字符串表示形式，默认为类名"""
+    return self.__class__.__name__
 
-    def __add__(self, other: Mobject) -> Mobject:
-        assert isinstance(other, Mobject)
-        return self.get_group_class()(self, other)
+def __add__(self, other: Mobject) -> Mobject:
+    """
+    重载加法运算符，用于将两个Mobject组合成一个组
+    
+    Args:
+        other: 要添加的另一个Mobject
+        
+    Returns:
+        包含当前对象和other的组对象
+        
+    Raises:
+        AssertionError: 如果other不是Mobject实例
+    """
+    assert isinstance(other, Mobject)
+    return self.get_group_class()(self, other)
 
-    def __mul__(self, other: int) -> Mobject:
-        assert isinstance(other, int)
-        return self.replicate(other)
+def __mul__(self, other: int) -> Mobject:
+    """
+    重载乘法运算符，用于复制当前对象指定次数
+    
+    Args:
+        other: 复制次数（整数）
+        
+    Returns:
+        包含多个当前对象副本的组
+        
+    Raises:
+        AssertionError: 如果other不是整数
+    """
+    assert isinstance(other, int)
+    return self.replicate(other)
 
-    def init_data(self, length: int = 0):
-        self.data = np.zeros(length, dtype=self.data_dtype)
-        self._data_defaults = np.ones(1, dtype=self.data.dtype)
+def init_data(self, length: int = 0):
+    """
+    初始化对象的数据数组
+    
+    Args:
+        length: 数据数组的初始长度
+    """
+    # 创建指定长度的空数据数组，数据类型由类定义的data_dtype决定
+    self.data = np.zeros(length, dtype=self.data_dtype)
+    # 存储数据默认值（用于后续扩展数组时使用）
+    self._data_defaults = np.ones(1, dtype=self.data.dtype)
 
-    def init_uniforms(self):
-        self.uniforms: UniformDict = {
-            "is_fixed_in_frame": 0.0,
-            "shading": np.array(self.shading, dtype=float),
-            "clip_plane": np.zeros(4),
-        }
+def init_uniforms(self):
+    """初始化着色器的统一变量（uniforms）"""
+    self.uniforms: UniformDict = {
+        "is_fixed_in_frame": 0.0,  # 是否固定在帧中（0表示否，1表示是）
+        "shading": np.array(self.shading, dtype=float),  # 着色参数
+        "clip_plane": np.zeros(4),  # 裁剪平面参数
+    }
 
-    def init_colors(self):
-        self.set_color(self.color, self.opacity)
+def init_colors(self):
+    """初始化对象的颜色和透明度"""
+    self.set_color(self.color, self.opacity)
 
-    def init_points(self):
-        # Typically implemented in subclass, unlpess purposefully left blank
-        pass
+def init_points(self):
+    """
+    初始化对象的点数据
+    
+    通常在子类中实现，除非有意留空
+    """
+    pass
 
-    def set_uniforms(self, uniforms: dict) -> Self:
-        for key, value in uniforms.items():
-            if isinstance(value, np.ndarray):
-                value = value.copy()
-            self.uniforms[key] = value
-        return self
+def set_uniforms(self, uniforms: dict) -> Self:
+    """
+    设置着色器的统一变量
+    
+    Args:
+        uniforms: 包含统一变量键值对的字典
+        
+    Returns:
+        对象本身（支持方法链）
+    """
+    for key, value in uniforms.items():
+        # 如果是numpy数组，创建副本避免外部修改影响内部状态
+        if isinstance(value, np.ndarray):
+            value = value.copy()
+        self.uniforms[key] = value
+    return self
 
-    @property
-    def animate(self) -> _AnimationBuilder | Self:
-        """
-        Methods called with Mobject.animate.method() can be passed
-        into a Scene.play call, as if you were calling
-        ApplyMethod(mobject.method)
+@property
+def animate(self) -> _AnimationBuilder | Self:
+    """
+    动画构建器属性，用于创建动画
+    
+    通过Mobject.animate.method()调用的方法可以传递给Scene.play()，
+    相当于调用ApplyMethod(mobject.method)
+    
+    借鉴自https://github.com/ManimCommunity/manim/
+    """
+    return _AnimationBuilder(self)
 
-        Borrowed from https://github.com/ManimCommunity/manim/
-        """
-        return _AnimationBuilder(self)
+@property
+def always(self) -> _UpdaterBuilder:
+    """
+    更新器构建器属性，用于创建持续性更新
+    
+    通过mobject.always.method(*args, **kwargs)调用的方法
+    将在每一帧都被调用
+    """
+    return _UpdaterBuilder(self)
 
-    @property
-    def always(self) -> _UpdaterBuilder:
-        """
-        Methods called with mobject.always.method(*args, **kwargs)
-        will result in the call mobject.method(*args, **kwargs)
-        on every frame
-        """
-        return _UpdaterBuilder(self)
+@property
+def f_always(self) -> _FunctionalUpdaterBuilder:
+    """
+    功能性更新器构建器属性，类似always但参数是生成器函数
+    
+    通过mobject.f_always.method(func1, func2, ...)调用的方法
+    将在每一帧使用生成器函数的返回值作为参数调用原方法
+    """
+    return _FunctionalUpdaterBuilder(self)
 
-    @property
-    def f_always(self) -> _FunctionalUpdaterBuilder:
-        """
-        Similar to Mobject.always, but with the intent that arguments
-        are functions returning the corresponding type fit for the method
-        Methods called with
-        mobject.f_always.method(
-            func1, func2, ...,
-            kwarg1=kw_func1,
-            kwarg2=kw_func2,
-            ...
-        )
-        will result in the call
-        mobject.method(
-            func1(), func2(), ...,
-            kwarg1=kw_func1(),
-            kwarg2=kw_func2(),
-            ...
-        )
-        on every frame
-        """
-        return _FunctionalUpdaterBuilder(self)
+def note_changed_data(self, recurse_up: bool = True) -> Self:
+    """
+    标记数据已更改，触发重新渲染
+    
+    Args:
+        recurse_up: 是否向上递归通知父对象
+        
+    Returns:
+        对象本身（支持方法链）
+    """
+    self._data_has_changed = True
+    if recurse_up:
+        # 通知所有父对象数据已更改
+        for mob in self.parents:
+            mob.note_changed_data()
+    return self
 
-    def note_changed_data(self, recurse_up: bool = True) -> Self:
-        self._data_has_changed = True
-        if recurse_up:
-            for mob in self.parents:
-                mob.note_changed_data()
-        return self
+@staticmethod
+def affects_data(func: Callable[..., T]) -> Callable[..., T]:
+    """
+    装饰器：标记修改数据的方法，自动触发数据更改通知
+    
+    Args:
+        func: 要装饰的方法
+        
+    Returns:
+        包装后的方法
+    """
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        result = func(self, *args, **kwargs)
+        # 调用方法后标记数据已更改
+        self.note_changed_data()
+        return result
+    return wrapper
 
-    @staticmethod
-    def affects_data(func: Callable[..., T]) -> Callable[..., T]:
-        @wraps(func)
-        def wrapper(self, *args, **kwargs):
-            result = func(self, *args, **kwargs)
-            self.note_changed_data()
-            return result
-        return wrapper
+@staticmethod
+def affects_family_data(func: Callable[..., T]) -> Callable[..., T]:
+    """
+    装饰器：标记修改家族数据的方法，自动触发家族所有对象的数据更改通知
+    
+    Args:
+        func: 要装饰的方法
+        
+    Returns:
+        包装后的方法
+    """
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        result = func(self, *args, **kwargs)
+        # 通知家族中所有有数据点的对象数据已更改
+        for mob in self.family_members_with_points():
+            mob.note_changed_data()
+        return result
+    return wrapper
 
-    @staticmethod
-    def affects_family_data(func: Callable[..., T]) -> Callable[..., T]:
-        @wraps(func)
-        def wrapper(self, *args, **kwargs):
-            result = func(self, *args, **kwargs)
-            for mob in self.family_members_with_points():
-                mob.note_changed_data()
-            return result
-        return wrapper
+@affects_data
+def set_data(self, data: np.ndarray) -> Self:
+    """
+    设置对象的完整数据数组
+    
+    Args:
+        data: 新的数据数组，必须与对象的数据类型匹配
+        
+    Returns:
+        对象本身（支持方法链）
+        
+    Raises:
+        AssertionError: 如果数据类型不匹配
+    """
+    assert data.dtype == self.data.dtype
+    self.resize_points(len(data))
+    self.data[:] = data
+    return self
 
-    # Only these methods should directly affect points
-    @affects_data
-    def set_data(self, data: np.ndarray) -> Self:
-        assert data.dtype == self.data.dtype
-        self.resize_points(len(data))
-        self.data[:] = data
-        return self
+@affects_data
+def resize_points(
+    self,
+    new_length: int,
+    resize_func: Callable[[np.ndarray, int], np.ndarray] = resize_array
+) -> Self:
+    """
+    调整点数据的长度
+    
+    Args:
+        new_length: 新的长度
+        resize_func: 用于调整数组大小的函数
+        
+    Returns:
+        对象本身（支持方法链）
+    """
+    if new_length == 0:
+        if len(self.data) > 0:
+            # 保存当前数据的第一个元素作为默认值
+            self._data_defaults[:1] = self.data[:1]
+    elif self.get_num_points() == 0:
+        # 如果当前没有数据，使用默认值初始化
+        self.data = self._data_defaults.copy()
 
-    @affects_data
-    def resize_points(
-        self,
-        new_length: int,
-        resize_func: Callable[[np.ndarray, int], np.ndarray] = resize_array
-    ) -> Self:
-        if new_length == 0:
-            if len(self.data) > 0:
-                self._data_defaults[:1] = self.data[:1]
-        elif self.get_num_points() == 0:
-            self.data = self._data_defaults.copy()
+    # 调整数据数组大小
+    self.data = resize_func(self.data, new_length)
+    # 刷新边界框
+    self.refresh_bounding_box()
+    return self
 
-        self.data = resize_func(self.data, new_length)
-        self.refresh_bounding_box()
-        return self
+@affects_data
+def set_points(self, points: Vect3Array | list[Vect3]) -> Self:
+    """
+    设置对象的点坐标数据
+    
+    Args:
+        points: 新的点坐标数组或列表
+        
+    Returns:
+        对象本身（支持方法链）
+    """
+    # 调整点数量并保持顺序
+    self.resize_points(len(points), resize_func=resize_preserving_order)
+    # 设置点坐标
+    self.data["point"][:] = points
+    return self
 
-    @affects_data
-    def set_points(self, points: Vect3Array | list[Vect3]) -> Self:
-        self.resize_points(len(points), resize_func=resize_preserving_order)
-        self.data["point"][:] = points
-        return self
+@affects_data
+def append_points(self, new_points: Vect3Array) -> Self:
+    """
+    向对象添加新的点坐标
+    
+    Args:
+        new_points: 要添加的点坐标数组
+        
+    Returns:
+        对象本身（支持方法链）
+    """
+    n = self.get_num_points()
+    # 调整点数量以容纳新点
+    self.resize_points(n + len(new_points))
+    # 新点的其他数据默认使用最后一个现有点的值
+    self.data[n:] = self.data[n - 1]
+    # 设置新点的坐标
+    self.data["point"][n:] = new_points
+    # 刷新边界框
+    self.refresh_bounding_box()
+    return self
 
-    @affects_data
-    def append_points(self, new_points: Vect3Array) -> Self:
-        n = self.get_num_points()
-        self.resize_points(n + len(new_points))
-        # Have most data default to the last value
-        self.data[n:] = self.data[n - 1]
-        # Then read in new points
-        self.data["point"][n:] = new_points
-        self.refresh_bounding_box()
-        return self
+@affects_family_data
+def reverse_points(self) -> Self:
+    """
+    反转家族中所有对象的点顺序
+    
+    Returns:
+        对象本身（支持方法链）
+    """
+    for mob in self.get_family():
+        mob.data[:] = mob.data[::-1]
+    return self
 
-    @affects_family_data
-    def reverse_points(self) -> Self:
-        for mob in self.get_family():
-            mob.data[:] = mob.data[::-1]
-        return self
+@affects_family_data
+def apply_points_function(
+    self,
+    func: Callable[[np.ndarray], np.ndarray],
+    about_point: Vect3 | None = None,
+    about_edge: Vect3 = ORIGIN,
+    works_on_bounding_box: bool = False
+) -> Self:
+    """
+    对家族中所有对象的点数据应用变换函数
+    
+    Args:
+        func: 要应用于点数据的变换函数
+        about_point: 变换的参考点，None则使用about_edge计算
+        about_edge: 用于计算参考点的边界框边缘
+        works_on_bounding_box: 函数是否直接作用于边界框
+        
+    Returns:
+        对象本身（支持方法链）
+    """
+    # 如果未指定参考点，使用边界框的指定边缘点作为参考点
+    if about_point is None and about_edge is not None:
+        about_point = self.get_bounding_box_point(about_edge)
 
-    @affects_family_data
-    def apply_points_function(
-        self,
-        func: Callable[[np.ndarray], np.ndarray],
-        about_point: Vect3 | None = None,
-        about_edge: Vect3 = ORIGIN,
-        works_on_bounding_box: bool = False
-    ) -> Self:
-        if about_point is None and about_edge is not None:
-            about_point = self.get_bounding_box_point(about_edge)
+    # 对家族中所有对象应用变换
+    for mob in self.get_family():
+        # 获取所有类点数据（通常包括point字段）
+        arrs = [mob.data[key] for key in mob.pointlike_data_keys if mob.has_points()]
+        # 如果需要处理边界框，将边界框也加入处理列表
+        if works_on_bounding_box:
+            arrs.append(mob.get_bounding_box())
 
-        for mob in self.get_family():
-            arrs = [mob.data[key] for key in mob.pointlike_data_keys if mob.has_points()]
-            if works_on_bounding_box:
-                arrs.append(mob.get_bounding_box())
+        # 对每个数组应用变换函数
+        for arr in arrs:
+            if about_point is None:
+                arr[:] = func(arr)
+            else:
+                # 围绕参考点进行变换：先平移到原点，应用变换，再平移回原位置
+                arr[:] = func(arr - about_point) + about_point
 
-            for arr in arrs:
-                if about_point is None:
-                    arr[:] = func(arr)
-                else:
-                    arr[:] = func(arr - about_point) + about_point
+    # 根据是否直接处理边界框决定如何刷新边界框
+    if not works_on_bounding_box:
+        self.refresh_bounding_box(recurse_down=True)
+    else:
+        for parent in self.parents:
+            parent.refresh_bounding_box()
+    return self
 
-        if not works_on_bounding_box:
-            self.refresh_bounding_box(recurse_down=True)
-        else:
-            for parent in self.parents:
-                parent.refresh_bounding_box()
-        return self
-
-    @affects_data
-    def match_points(self, mobject: Mobject) -> Self:
-        self.resize_points(len(mobject.data), resize_func=resize_preserving_order)
-        for key in self.pointlike_data_keys:
-            self.data[key][:] = mobject.data[key]
-        return self
+@affects_data
+def match_points(self, mobject: Mobject) -> Self:
+    """
+    匹配另一个Mobject的点数据
+    
+    Args:
+        mobject: 要匹配的Mobject
+        
+    Returns:
+        对象本身（支持方法链）
+    """
+    # 调整点数量以匹配目标对象
+    self.resize_points(len(mobject.data), resize_func=resize_preserving_order)
+    # 复制所有类点数据
+    for key in self.pointlike_data_keys:
+        self.data[key][:] = mobject.data[key]
+    return self
 
     # Others related to points
 
