@@ -1,3 +1,4 @@
+# 从__future__导入annotations，支持在类型提示中使用尚未定义的类
 from __future__ import annotations
 
 import copy
@@ -8,54 +9,69 @@ import pickle
 import random
 import sys
 
-import moderngl
+import moderngl  # 现代OpenGL绑定库，用于渲染
 import numbers
 import numpy as np
 
-from manimlib.constants import DEFAULT_MOBJECT_TO_EDGE_BUFF
-from manimlib.constants import DEFAULT_MOBJECT_TO_MOBJECT_BUFF
-from manimlib.constants import DOWN, IN, LEFT, ORIGIN, OUT, RIGHT, UP
-from manimlib.constants import FRAME_X_RADIUS, FRAME_Y_RADIUS
-from manimlib.constants import MED_SMALL_BUFF
-from manimlib.constants import TAU
-from manimlib.constants import DEFAULT_MOBJECT_COLOR
-from manimlib.event_handler import EVENT_DISPATCHER
-from manimlib.event_handler.event_listner import EventListener
-from manimlib.event_handler.event_type import EventType
-from manimlib.logger import log
-from manimlib.shader_wrapper import ShaderWrapper
-from manimlib.utils.color import color_gradient
-from manimlib.utils.color import color_to_rgb
-from manimlib.utils.color import get_colormap_list
-from manimlib.utils.color import rgb_to_hex
-from manimlib.utils.iterables import arrays_match
-from manimlib.utils.iterables import array_is_constant
-from manimlib.utils.iterables import batch_by_property
-from manimlib.utils.iterables import list_update
-from manimlib.utils.iterables import listify
-from manimlib.utils.iterables import resize_array
-from manimlib.utils.iterables import resize_preserving_order
-from manimlib.utils.iterables import resize_with_interpolation
-from manimlib.utils.bezier import integer_interpolate
-from manimlib.utils.bezier import interpolate
-from manimlib.utils.paths import straight_path
-from manimlib.utils.shaders import get_colormap_code
-from manimlib.utils.space_ops import angle_of_vector
-from manimlib.utils.space_ops import get_norm
-from manimlib.utils.space_ops import rotation_matrix_transpose
+# 从manimlib.constants导入各种常量
+from manimlib.constants import DEFAULT_MOBJECT_TO_EDGE_BUFF  # 对象到边缘的默认缓冲距离
+from manimlib.constants import DEFAULT_MOBJECT_TO_MOBJECT_BUFF  # 对象之间的默认缓冲距离
+from manimlib.constants import DOWN, IN, LEFT, ORIGIN, OUT, RIGHT, UP  # 方向向量常量
+from manimlib.constants import FRAME_X_RADIUS, FRAME_Y_RADIUS  # 帧的X/Y半径
+from manimlib.constants import MED_SMALL_BUFF  # 中等偏小的缓冲距离
+from manimlib.constants import TAU  # 2π常量（360度）
+from manimlib.constants import DEFAULT_MOBJECT_COLOR  # 默认对象颜色
 
+# 导入事件处理相关模块
+from manimlib.event_handler import EVENT_DISPATCHER  # 事件调度器
+from manimlib.event_handler.event_listner import EventListener  # 事件监听器
+from manimlib.event_handler.event_type import EventType  # 事件类型
+
+from manimlib.logger import log  # 日志工具
+from manimlib.shader_wrapper import ShaderWrapper  # 着色器包装器
+
+# 导入颜色处理工具函数
+from manimlib.utils.color import color_gradient  # 颜色渐变
+from manimlib.utils.color import color_to_rgb  # 颜色转RGB
+from manimlib.utils.color import get_colormap_list  # 获取颜色映射列表
+from manimlib.utils.color import rgb_to_hex  # RGB转十六进制
+
+# 导入可迭代对象处理工具函数
+from manimlib.utils.iterables import arrays_match  # 数组匹配检查
+from manimlib.utils.iterables import array_is_constant  # 数组是否为常量
+from manimlib.utils.iterables import batch_by_property  # 按属性批量处理
+from manimlib.utils.iterables import list_update  # 列表更新
+from manimlib.utils.iterables import listify  # 转换为列表
+from manimlib.utils.iterables import resize_array  # 调整数组大小
+from manimlib.utils.iterables import resize_preserving_order  # 保持顺序调整大小
+from manimlib.utils.iterables import resize_with_interpolation  # 插值调整大小
+
+# 导入贝塞尔曲线和插值工具
+from manimlib.utils.bezier import integer_interpolate  # 整数插值
+from manimlib.utils.bezier import interpolate  # 插值
+
+# 导入路径和空间操作工具
+from manimlib.utils.paths import straight_path  # 直线路径
+from manimlib.utils.shaders import get_colormap_code  # 获取颜色映射代码
+from manimlib.utils.space_ops import angle_of_vector  # 向量角度计算
+from manimlib.utils.space_ops import get_norm  # 求范数
+from manimlib.utils.space_ops import rotation_matrix_transpose  # 旋转矩阵转置
+
+# 类型检查相关导入
 from typing import TYPE_CHECKING
 from typing import TypeVar, Generic, Iterable
-SubmobjectType = TypeVar('SubmobjectType', bound='Mobject')
+SubmobjectType = TypeVar('SubmobjectType', bound='Mobject')  # 子对象类型变量
 
 
 if TYPE_CHECKING:
+    # 类型提示定义
     from typing import Callable, Iterator, Union, Tuple, Optional, Any
     import numpy.typing as npt
     from manimlib.typing import ManimColor, Vect3, Vect4Array, Vect3Array, UniformDict, Self
     from moderngl.context import Context
 
     T = TypeVar('T')
+    # 更新器类型定义：基于时间的更新器和非时间更新器
     TimeBasedUpdater = Callable[["Mobject", float], "Mobject" | None]
     NonTimeUpdater = Callable[["Mobject"], "Mobject" | None]
     Updater = Union[TimeBasedUpdater, NonTimeUpdater]
@@ -63,63 +79,66 @@ if TYPE_CHECKING:
 
 class Mobject(object):
     """
-    Mathematical Object
+    所有可渲染数学对象的基类，提供基础的渲染和动画功能
     """
-    dim: int = 3
-    shader_folder: str = ""
-    render_primitive: int = moderngl.TRIANGLE_STRIP
-    # Must match in attributes of vert shader
+    dim: int = 3  # 维度，默认为3D
+    shader_folder: str = ""  # 着色器文件夹路径
+    render_primitive: int = moderngl.TRIANGLE_STRIP  # 渲染图元类型，默认为三角形带
+    # 数据类型定义，必须与顶点着色器的属性匹配
     data_dtype: np.dtype = np.dtype([
-        ('point', np.float32, (3,)),
-        ('rgba', np.float32, (4,)),
+        ('point', np.float32, (3,)),  # 点坐标（x,y,z）
+        ('rgba', np.float32, (4,)),   # 颜色和透明度（r,g,b,a）
     ])
-    aligned_data_keys = ['point']
-    pointlike_data_keys = ['point']
+    aligned_data_keys = ['point']  # 需要对齐的数据键
+    pointlike_data_keys = ['point']  # 类点数据键
 
     def __init__(
         self,
-        color: ManimColor = DEFAULT_MOBJECT_COLOR,
-        opacity: float = 1.0,
-        shading: Tuple[float, float, float] = (0.0, 0.0, 0.0),
-        # For shaders
+        color: ManimColor = DEFAULT_MOBJECT_COLOR,  # 对象颜色，默认为白色
+        opacity: float = 1.0,  # 不透明度，1.0为完全不透明
+        shading: Tuple[float, float, float] = (0.0, 0.0, 0.0),  # 着色参数
+        # 纹理路径字典
         texture_paths: dict[str, str] | None = None,
-        # If true, the mobject will not get rotated according to camera position
+        # 如果为True，对象不会随相机位置旋转
         is_fixed_in_frame: bool = False,
-        depth_test: bool = False,
-        z_index: int = 0,
+        depth_test: bool = False,  # 是否启用深度测试
+        z_index: int = 0,  # z轴索引，用于渲染排序
     ):
         self.color = color
         self.opacity = opacity
         self.shading = shading
-        self.texture_paths = texture_paths
+        self.texture_paths = texture_paths or {}
         self.depth_test = depth_test
         self.z_index = z_index
 
-        # Internal state
-        self.submobjects: list[Mobject] = []
-        self.parents: list[Mobject] = []
-        self.family: list[Mobject] | None = [self]
-        self.locked_data_keys: set[str] = set()
-        self.const_data_keys: set[str] = set()
-        self.locked_uniform_keys: set[str] = set()
-        self.saved_state = None
-        self.target = None
-        self.bounding_box: Vect3Array = np.zeros((3, 3))
-        self.shader_wrapper: Optional[ShaderWrapper] = None
-        self._is_animating: bool = False
-        self._needs_new_bounding_box: bool = True
-        self._data_has_changed: bool = True
-        self.shader_code_replacements: dict[str, str] = dict()
+        # 内部状态变量
+        self.submobjects: list[Mobject] = []  # 子对象列表
+        self.parents: list[Mobject] = []  # 父对象列表
+        self.family: list[Mobject] | None = [self]  # 对象家族（包括自身和所有子对象）
+        self.locked_data_keys: set[str] = set()  # 锁定的数据键（不可修改）
+        self.const_data_keys: set[str] = set()  # 常量数据键（不参与插值）
+        self.locked_uniform_keys: set[str] = set()  # 锁定的统一变量键
+        self.saved_state = None  # 保存的状态
+        self.target = None  # 目标状态（用于动画）
+        self.bounding_box: Vect3Array = np.zeros((3, 3))  #  bounding box（边界框）
+        self.shader_wrapper: Optional[ShaderWrapper] = None  # 着色器包装器
+        self._is_animating: bool = False  # 是否正在动画中
+        self._needs_new_bounding_box: bool = True  # 是否需要更新边界框
+        self._data_has_changed: bool = True  # 数据是否已更改（用于渲染优化）
+        self.shader_code_replacements: dict[str, str] = dict()  # 着色器代码替换字典
 
-        self.init_data()
-        self.init_uniforms()
-        self.init_updaters()
-        self.init_event_listners()
-        self.init_points()
-        self.init_colors()
+        # 初始化各种组件
+        self.init_data()  # 初始化数据
+        self.init_uniforms()  # 初始化统一变量
+        self.init_updaters()  # 初始化更新器
+        self.init_event_listners()  # 初始化事件监听器
+        self.init_points()  # 初始化点
+        self.init_colors()  # 初始化颜色
 
+        # 应用深度测试设置
         if self.depth_test:
             self.apply_depth_test()
+        # 如果需要固定在帧中
         if is_fixed_in_frame:
             self.fix_in_frame()
 
