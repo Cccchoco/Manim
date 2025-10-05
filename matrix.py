@@ -300,138 +300,237 @@ def add_background_to_entries(self) -> Self:
         mob.add_background_rectangle()
     return self
 
-    def swap_entry_for_dots(self, entry, dots):
-        dots.move_to(entry)
-        entry.become(dots)
-        if entry in self.elements:
-            self.elements.remove(entry)
-        if entry not in self.ellipses:
-            self.ellipses.append(entry)
+def swap_entry_for_dots(self, entry, dots):
+    """
+    将矩阵中的某个元素替换为省略号
+    
+    Args:
+        entry: 要被替换的矩阵元素（VMobject）
+        dots: 用于替换的省略号对象（通常是Tex对象）
+    """
+    # 将省略号移动到被替换元素的位置
+    dots.move_to(entry)
+    # 用省略号替换原元素
+    entry.become(dots)
+    # 如果原元素在elements列表中，将其移除
+    if entry in self.elements:
+        self.elements.remove(entry)
+    # 如果原元素不在ellipses列表中，将其添加
+    if entry not in self.ellipses:
+        self.ellipses.append(entry)
 
-    def swap_entries_for_ellipses(
-        self,
-        row_index: Optional[int] = None,
-        col_index: Optional[int] = None,
-        height_ratio: float = 0.65,
-        width_ratio: float = 0.4
-    ):
-        rows = self.get_rows()
-        cols = self.get_columns()
+def swap_entries_for_ellipses(
+    self,
+    row_index: Optional[int] = None,
+    col_index: Optional[int] = None,
+    height_ratio: float = 0.65,
+    width_ratio: float = 0.4
+):
+    """
+    在指定行或列位置用省略号替换元素，用于表示大型矩阵的省略部分
+    
+    Args:
+        row_index: 要替换为垂直省略号的行索引（可选）
+        col_index: 要替换为水平省略号的列索引（可选）
+        height_ratio: 垂直省略号与行高的比例
+        width_ratio: 水平省略号与列宽的比例
+        
+    Returns:
+        矩阵对象本身（支持方法链调用）
+    """
+    rows = self.get_rows()
+    cols = self.get_columns()
 
-        avg_row_height = rows.get_height() / len(rows)
-        vdots_height = height_ratio * avg_row_height
+    # 计算平均行高和垂直省略号的高度
+    avg_row_height = rows.get_height() / len(rows)
+    vdots_height = height_ratio * avg_row_height
 
-        avg_col_width = cols.get_width() / len(cols)
-        hdots_width = width_ratio * avg_col_width
+    # 计算平均列宽和水平省略号的宽度
+    avg_col_width = cols.get_width() / len(cols)
+    hdots_width = width_ratio * avg_col_width
 
-        use_vdots = row_index is not None and -len(rows) <= row_index < len(rows)
-        use_hdots = col_index is not None and -len(cols) <= col_index < len(cols)
+    # 检查行索引和列索引是否有效
+    use_vdots = row_index is not None and -len(rows) <= row_index < len(rows)
+    use_hdots = col_index is not None and -len(cols) <= col_index < len(cols)
 
-        if use_vdots:
-            for column in cols:
-                # Add vdots
-                dots = Tex(R"\vdots")
-                dots.set_height(vdots_height)
-                self.swap_entry_for_dots(column[row_index], dots)
-        if use_hdots:
-            for row in rows:
-                # Add hdots
-                dots = Tex(R"\hdots")
-                dots.set_width(hdots_width)
-                self.swap_entry_for_dots(row[col_index], dots)
-        if use_vdots and use_hdots:
-            rows[row_index][col_index].rotate(-45 * DEG)
-        return self
+    # 如果行索引有效，替换该行所有元素为垂直省略号
+    if use_vdots:
+        for column in cols:
+            # 创建垂直省略号
+            dots = Tex(R"\vdots")
+            dots.set_height(vdots_height)
+            # 替换元素
+            self.swap_entry_for_dots(column[row_index], dots)
+    
+    # 如果列索引有效，替换该列所有元素为水平省略号
+    if use_hdots:
+        for row in rows:
+            # 创建水平省略号
+            dots = Tex(R"\hdots")
+            dots.set_width(hdots_width)
+            # 替换元素
+            self.swap_entry_for_dots(row[col_index], dots)
+    
+    # 如果同时使用了水平和垂直省略号，将交叉处的省略号旋转45度
+    if use_vdots and use_hdots:
+        rows[row_index][col_index].rotate(-45 * DEG)
+    
+    return self
 
-    def get_mob_matrix(self) -> VMobjectMatrixType:
-        return self.mob_matrix
+def get_mob_matrix(self) -> VMobjectMatrixType:
+    """
+    获取由可移动对象组成的矩阵
+    
+    Returns:
+        由VMobject组成的二维列表
+    """
+    return self.mob_matrix
 
-    def get_entries(self) -> VGroup:
-        return VGroup(*self.elements)
+def get_entries(self) -> VGroup:
+    """
+    获取矩阵中所有元素的集合
+    
+    Returns:
+        包含所有矩阵元素的VGroup
+    """
+    return VGroup(*self.elements)
 
-    def get_brackets(self) -> VGroup:
-        return VGroup(*self.brackets)
+def get_brackets(self) -> VGroup:
+    """
+    获取矩阵的括号
+    
+    Returns:
+        包含左右括号的VGroup
+    """
+    return VGroup(*self.brackets)
 
-    def get_ellipses(self) -> VGroup:
-        return VGroup(*self.ellipses)
+def get_ellipses(self) -> VGroup:
+    """
+    获取矩阵中的所有省略号
+    
+    Returns:
+        包含所有省略号的VGroup
+    """
+    return VGroup(*self.ellipses)
 
 
 class DecimalMatrix(Matrix):
+    """
+    用于显示十进制数字的矩阵子类
+    """
     def __init__(
         self,
-        matrix: FloatMatrixType,
-        num_decimal_places: int = 2,
-        decimal_config: dict = dict(),
-        **config
+        matrix: FloatMatrixType,  # 浮点型矩阵数据
+        num_decimal_places: int = 2,  # 保留的小数位数
+        decimal_config: dict = dict(),  # 十进制数字的配置参数
+        **config  # 传递给父类的其他参数
     ):
-        self.float_matrix = matrix
+        self.float_matrix = matrix  # 存储原始浮点矩阵
+        # 调用父类的初始化方法
         super().__init__(
             matrix,
             element_config=dict(
-                num_decimal_places=num_decimal_places,
-                **decimal_config
+                num_decimal_places=num_decimal_places,** decimal_config
             ),
             **config
         )
 
     def element_to_mobject(self, element, **decimal_config) -> DecimalNumber:
+        """
+        将元素转换为DecimalNumber对象（重写父类方法）
+        
+        Args:
+            element: 要转换的数字元素
+            **decimal_config: DecimalNumber的配置参数
+            
+        Returns:
+            转换后的DecimalNumber对象
+        """
         return DecimalNumber(element, **decimal_config)
 
 
 class IntegerMatrix(DecimalMatrix):
+    """
+    用于显示整数的矩阵子类（DecimalMatrix的子类）
+    """
     def __init__(
         self,
-        matrix: FloatMatrixType,
-        num_decimal_places: int = 0,
-        decimal_config: dict = dict(),
-        **config
+        matrix: FloatMatrixType,  # 整数矩阵数据（可以是浮点形式）
+        num_decimal_places: int = 0,  # 小数位数固定为0
+        decimal_config: dict = dict(),  # 数字的配置参数
+        **config  # 传递给父类的其他参数
     ):
+        # 调用父类的初始化方法，强制小数位数为0
         super().__init__(matrix, num_decimal_places, decimal_config, **config)
 
 
 class TexMatrix(Matrix):
+    """
+    用于显示LaTeX字符串的矩阵子类
+    """
     def __init__(
         self,
-        matrix: StringMatrixType,
-        tex_config: dict = dict(),
-        **config,
+        matrix: StringMatrixType,  # 字符串矩阵数据（包含LaTeX代码）
+        tex_config: dict = dict(),  # Tex对象的配置参数
+        **config,  # 传递给父类的其他参数
     ):
+        # 调用父类的初始化方法
         super().__init__(
             matrix,
-            element_config=tex_config,
-            **config
+            element_config=tex_config,** config
         )
 
 
 class MobjectMatrix(Matrix):
+    """
+    用于显示由Manim可移动对象(VMobject)组成的矩阵子类
+    """
     def __init__(
         self,
-        group: VGroup,
-        n_rows: int | None = None,
-        n_cols: int | None = None,
-        height: float = 4.0,
-        element_alignment_corner=ORIGIN,
-        **config,
+        group: VGroup,  # 包含要组成矩阵的VMobject的VGroup
+        n_rows: int | None = None,  # 矩阵的行数（可选）
+        n_cols: int | None = None,  # 矩阵的列数（可选）
+        height: float = 4.0,  # 矩阵的高度
+        element_alignment_corner=ORIGIN,  # 元素对齐的参考点
+        **config,  # 传递给父类的其他参数
     ):
-        # Have fallback defaults of n_rows and n_cols
+        # 计算行数和列数的默认值
         n_mobs = len(group)
         if n_rows is None:
+            # 如果未指定行数，根据列数或元素总数的平方根计算
             n_rows = int(np.sqrt(n_mobs)) if n_cols is None else n_mobs // n_cols
         if n_cols is None:
+            # 如果未指定列数，根据行数计算
             n_cols = n_mobs // n_rows
 
+        # 检查元素数量是否足够
         if len(group) < n_rows * n_cols:
-            raise Exception("Input to MobjectMatrix must have at least n_rows * n_cols entries")
+            raise Exception("输入到MobjectMatrix的元素数量必须至少为n_rows * n_cols")
 
+        # 构建由VMobject组成的矩阵
         mob_matrix = [
             [group[n * n_cols + k] for k in range(n_cols)]
             for n in range(n_rows)
         ]
+        
+        # 更新配置参数
         config.update(
             height=height,
             element_alignment_corner=element_alignment_corner,
         )
-        super().__init__(mob_matrix,  **config)
+        
+        # 调用父类的初始化方法
+        super().__init__(mob_matrix, **config)
 
     def element_to_mobject(self, element: VMobject, **config) -> VMobject:
+        """
+        直接返回VMobject（重写父类方法，因为元素已经是VMobject）
+        
+        Args:
+            element: 要转换的VMobject
+            **config: 配置参数（此处未使用）
+            
+        Returns:
+            原VMobject
+        """
         return element
