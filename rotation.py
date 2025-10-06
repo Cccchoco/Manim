@@ -78,21 +78,24 @@ class Rotating(Animation):
         )
 
 
+# 定义Rotate类，继承自Rotating类，用于实现更简洁的旋转动画
 class Rotate(Rotating):
+    # 初始化方法，设置旋转动画的参数（基于父类Rotating进行了默认值调整）
     def __init__(
         self,
-        mobject: Mobject,
-        angle: float = PI,
-        axis: np.ndarray = OUT,
-        run_time: float = 1,
-        rate_func: Callable[[float], float] = smooth,
-        about_edge: np.ndarray = ORIGIN,
-        **kwargs
+        mobject: Mobject,  # 要旋转的Mobject对象
+        angle: float = PI,  # 旋转总角度，默认值为PI（π，即180度，区别于父类的TAU）
+        axis: np.ndarray = OUT,  # 旋转轴，默认值为OUT（与父类一致）
+        run_time: float = 1,  # 动画运行时间，默认1秒（比父类的5秒更短）
+        rate_func: Callable[[float], float] = smooth,  # 速率函数，默认平滑曲线（父类为线性）
+        about_edge: np.ndarray = ORIGIN,  # 围绕旋转的边，默认值为原点（父类默认为None）
+        **kwargs  # 其他关键字参数，用于传递给父类
     ):
+        # 调用父类Rotating的初始化方法，传递参数
         super().__init__(
-            mobject, angle, axis,
-            run_time=run_time,
-            rate_func=rate_func,
-            about_edge=about_edge,
-            **kwargs
+            mobject, angle, axis,  # 传递前三个位置参数（mobject, angle, axis）
+            run_time=run_time,  # 传递运行时间参数
+            rate_func=rate_func,  # 传递速率函数参数
+            about_edge=about_edge,  # 传递旋转边参数
+            **kwargs  # 传递其他关键字参数
         )
