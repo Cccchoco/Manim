@@ -31,52 +31,75 @@ if TYPE_CHECKING:
     from manimlib.typing import Vect3  # 导入三维向量类型Vect3
 
 
+# 定义Fade类，继承自Transform类，用于实现淡入淡出效果的动画
 class Fade(Transform):
+    # 初始化方法，设置淡入淡出动画的参数
     def __init__(
         self,
-        mobject: Mobject,
-        shift: np.ndarray = ORIGIN,
-        scale: float = 1,
-        **kwargs
+        mobject: Mobject,  # 要应用淡入淡出效果的Mobject对象
+        shift: np.ndarray = ORIGIN,  # 动画过程中的位移向量，默认值为原点（不位移）
+        scale: float = 1,  # 动画过程中的缩放因子，默认值为1（不缩放）
+        **kwargs  # 其他关键字参数，用于传递给父类Transform
     ):
+        # 保存位移向量到实例变量，供后续动画计算使用
         self.shift_vect = shift
+        # 保存缩放因子到实例变量，供后续动画计算使用
         self.scale_factor = scale
-        super().__init__(mobject, **kwargs)
+        # 调用父类Transform的初始化方法，传递必要参数
+        super().__init__(mobject,** kwargs)
 
 
+# 定义FadeIn类，继承自Fade类，用于实现淡入动画效果
 class FadeIn(Fade):
+    # 创建目标状态的方法，定义动画结束时物体的状态
     def create_target(self) -> Mobject:
+        # 返回原物体的副本作为目标状态（即淡入结束时显示原物体）
         return self.mobject.copy()
 
+    # 创建起始状态的方法，定义动画开始时物体的状态
     def create_starting_mobject(self) -> Mobject:
+        # 调用父类Fade的方法获取基础起始状态
         start = super().create_starting_mobject()
+        # 设置起始状态的透明度为0（完全透明）
         start.set_opacity(0)
+        # 根据缩放因子反向缩放（如果scale_factor>1，则起始状态更小）
         start.scale(1.0 / self.scale_factor)
+        # 根据位移向量反向移动（为后续正向移动做准备）
         start.shift(-self.shift_vect)
+        # 返回配置好的起始状态物体
         return start
 
 
+# 定义FadeOut类，继承自Fade类，用于实现淡出动画效果
 class FadeOut(Fade):
+    # 初始化方法，设置淡出动画的参数
     def __init__(
         self,
-        mobject: Mobject,
-        shift: Vect3 = ORIGIN,
-        remover: bool = True,
-        final_alpha_value: float = 0.0,  # Put it back in original state when done,
-        **kwargs
+        mobject: Mobject,  # 要应用淡出效果的Mobject对象
+        shift: Vect3 = ORIGIN,  # 淡出过程中的位移向量，默认值为原点（不位移）
+        remover: bool = True,  # 动画结束后是否移除物体，默认True（移除）
+        final_alpha_value: float = 0.0,  # 最终透明度值，默认0.0（完全透明）
+        **kwargs  # 其他关键字参数，传递给父类
     ):
+        # 调用父类Fade的初始化方法，传递参数
         super().__init__(
-            mobject, shift,
-            remover=remover,
-            final_alpha_value=final_alpha_value,
-            **kwargs
+            mobject, shift,  # 传递物体和位移参数
+            remover=remover,  # 传递是否移除物体的参数
+            final_alpha_value=final_alpha_value,  # 传递最终透明度参数
+            **kwargs  # 传递其他关键字参数
         )
 
+    # 创建目标状态的方法，定义动画结束时物体的状态
     def create_target(self) -> Mobject:
+        # 复制原物体作为基础目标状态
         result = self.mobject.copy()
+        # 设置目标状态的透明度为0（完全透明）
         result.set_opacity(0)
+        # 按照位移向量移动目标状态物体
         result.shift(self.shift_vect)
+        # 按照缩放因子缩放目标状态物体
         result.scale(self.scale_factor)
+        # 返回配置好的目标状态物体
         return result
 
 
