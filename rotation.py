@@ -28,44 +28,53 @@ if TYPE_CHECKING:
     from manimlib.mobject.mobject import Mobject
 
 
+# 定义Rotating类，继承自Animation类，用于实现物体的旋转动画
 class Rotating(Animation):
+    # 初始化方法，设置旋转动画的各种参数
     def __init__(
         self,
-        mobject: Mobject,
-        angle: float = TAU,
-        axis: np.ndarray = OUT,
-        about_point: np.ndarray | None = None,
-        about_edge: np.ndarray | None = None,
-        run_time: float = 5.0,
-        rate_func: Callable[[float], float] = linear,
-        suspend_mobject_updating: bool = False,
-        **kwargs
+        mobject: Mobject,  # 要进行旋转动画的Mobject对象
+        angle: float = TAU,  # 旋转的总角度，默认值为TAU（2π，即360度）
+        axis: np.ndarray = OUT,  # 旋转轴，默认值为OUT（指向屏幕外的轴）
+        about_point: np.ndarray | None = None,  # 围绕旋转的点，默认为None
+        about_edge: np.ndarray | None = None,  # 围绕旋转的边，默认为None
+        run_time: float = 5.0,  # 动画运行时间，默认5秒
+        rate_func: Callable[[float], float] = linear,  # 速率函数，控制动画速度变化，默认线性
+        suspend_mobject_updating: bool = False,  # 是否暂停物体的更新，默认不暂停
+        **kwargs  # 其他关键字参数，用于传递给父类
     ):
-        self.angle = angle
-        self.axis = axis
-        self.about_point = about_point
-        self.about_edge = about_edge
+        self.angle = angle  # 保存旋转角度到实例变量
+        self.axis = axis  # 保存旋转轴到实例变量
+        self.about_point = about_point  # 保存旋转点到实例变量
+        self.about_edge = about_edge  # 保存旋转边到实例变量
+        # 调用父类的初始化方法，传递必要的参数
         super().__init__(
             mobject,
             run_time=run_time,
             rate_func=rate_func,
-            suspend_mobject_updating=suspend_mobject_updating,
-            **kwargs
+            suspend_mobject_updating=suspend_mobject_updating,** kwargs
         )
 
+    # 插值方法，用于在动画的每个帧更新物体状态
     def interpolate_mobject(self, alpha: float) -> None:
+        # 配对当前物体和初始状态物体的所有带有点数据的子物体
         pairs = zip(
-            self.mobject.family_members_with_points(),
-            self.starting_mobject.family_members_with_points(),
+            self.mobject.family_members_with_points(),  # 当前物体的所有带点的子物体
+            self.starting_mobject.family_members_with_points(),  # 初始状态物体的所有带点的子物体
         )
+        # 遍历每对子物体
         for sm1, sm2 in pairs:
+            # 遍历所有点数据键（如顶点、控制点等）
             for key in sm1.pointlike_data_keys:
+                # 将初始状态的点数据复制到当前物体，重置位置
                 sm1.data[key][:] = sm2.data[key]
+        # 对物体进行旋转
         self.mobject.rotate(
+            # 计算当前帧的旋转角度：速率函数值 × 总角度
             self.rate_func(self.time_spanned_alpha(alpha)) * self.angle,
-            axis=self.axis,
-            about_point=self.about_point,
-            about_edge=self.about_edge,
+            axis=self.axis,  # 使用指定的旋转轴
+            about_point=self.about_point,  # 使用指定的旋转点
+            about_edge=self.about_edge,  # 使用指定的旋转边
         )
 
 
