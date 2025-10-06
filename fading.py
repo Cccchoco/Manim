@@ -204,78 +204,100 @@ class FadeTransform(Transform):
             scene.add(self.to_add_on_completion)
 
 
+# FadeTransformPieces类，继承自FadeTransform，用于对物体的多个部分分别进行淡入淡出变换
 class FadeTransformPieces(FadeTransform):
+    # 动画开始时执行的方法
     def begin(self) -> None:
+        # 将源物体（索引0）与目标物体（索引1）的家族成员对齐
+        # 确保变换时各对应部分位置匹配
         self.mobject[0].align_family(self.mobject[1])
+        # 调用父类的begin方法完成初始化
         super().begin()
 
+    # 重写ghost_to方法，对家族中的每个子物体分别处理
     def ghost_to(self, source: Mobject, target: Mobject) -> None:
+        # 遍历源和目标物体的所有家族成员（子物体）
         for sm0, sm1 in zip(source.get_family(), target.get_family()):
+            # 对每个子物体调用父类的ghost_to方法，实现逐部分变换
             super().ghost_to(sm0, sm1)
 
 
+# VFadeIn类，继承自Animation，专门用于VMobject的淡入动画
 class VFadeIn(Animation):
     """
-    VFadeIn and VFadeOut only work for VMobjects,
+    VFadeIn和VFadeOut仅适用于VMobjects（矢量物体），
+    分别控制描边和填充的透明度
     """
+    # 初始化方法
     def __init__(self, vmobject: VMobject, suspend_mobject_updating: bool = False, **kwargs):
+        # 调用父类构造方法，传入矢量物体和其他参数
         super().__init__(
             vmobject,
-            suspend_mobject_updating=suspend_mobject_updating,
-            **kwargs
+            suspend_mobject_updating=suspend_mobject_updating,** kwargs
         )
 
+    # 插值方法，控制子物体的淡入效果
     def interpolate_submobject(
         self,
-        submob: VMobject,
-        start: VMobject,
-        alpha: float
+        submob: VMobject,  # 要处理的子矢量物体
+        start: VMobject,   # 起始状态
+        alpha: float       # 动画进度（0到1）
     ) -> None:
+        # 插值计算描边透明度：从0到起始状态的描边透明度
         submob.set_stroke(
             opacity=interpolate(0, start.get_stroke_opacity(), alpha)
         )
+        # 插值计算填充透明度：从0到起始状态的填充透明度
         submob.set_fill(
             opacity=interpolate(0, start.get_fill_opacity(), alpha)
         )
 
 
+# VFadeOut类，继承自VFadeIn，实现矢量物体的淡出动画
 class VFadeOut(VFadeIn):
+    # 初始化方法，增加了淡出相关参数
     def __init__(
         self,
         vmobject: VMobject,
-        remover: bool = True,
-        final_alpha_value: float = 0.0,
+        remover: bool = True,  # 动画结束后是否移除物体
+        final_alpha_value: float = 0.0,  # 最终透明度值
         **kwargs
     ):
+        # 调用父类构造方法
         super().__init__(
             vmobject,
             remover=remover,
-            final_alpha_value=final_alpha_value,
-            **kwargs
+            final_alpha_value=final_alpha_value,** kwargs
         )
 
+    # 重写插值方法，实现淡出效果
     def interpolate_submobject(
         self,
         submob: VMobject,
         start: VMobject,
         alpha: float
     ) -> None:
+        # 调用父类的插值方法，但将alpha反转（1-alpha）
+        # 实现从原始透明度到0的过渡
         super().interpolate_submobject(submob, start, 1 - alpha)
 
 
+# VFadeInThenOut类，继承自VFadeIn，实现先淡入再淡出的效果
 class VFadeInThenOut(VFadeIn):
+    # 初始化方法
     def __init__(
         self,
         vmobject: VMobject,
+        # 速率函数默认使用there_and_back（去而复返），实现先增后减
         rate_func: Callable[[float], float] = there_and_back,
-        remover: bool = True,
-        final_alpha_value: float = 0.5,
+        remover: bool = True,  # 动画结束后是否移除物体
+        final_alpha_value: float = 0.5,  # 最终保留的透明度
         **kwargs
     ):
+        # 调用父类构造方法
         super().__init__(
             vmobject,
             rate_func=rate_func,
             remover=remover,
-            final_alpha_value=final_alpha_value,
-            **kwargs
+            final_alpha_value=final_alpha_value,** kwargs
         )
