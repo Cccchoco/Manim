@@ -19,6 +19,15 @@ if TYPE_CHECKING:
     from typing import Callable
 
 
+
+"""
+用于实现数字的动态变化效果
+核心功能：
+1.接收一个DecimalNumber对象（用于显示数字）和一个更新函数
+2动画过程中，根据当前进度alpha（0 到 1）计算对应的数字值
+3.通过更新函数可以灵活定义数字的变化规律（如线性增长、指数变化等）
+4.实时更新数字显示，实现平滑的数字变化动画
+"""
 # 定义ChangingDecimal类，继承自Animation，用于实现数字的动态变化动画
 class ChangingDecimal(Animation):
     def __init__(
@@ -50,6 +59,14 @@ class ChangingDecimal(Animation):
         # 更新数字物体的显示值
         self.mobject.set_value(new_value)
 
+
+"""
+ChangeDecimalToValue类是ChangingDecimal的简化版，专门用于实现数字从当前值到目标值的平滑过渡
+核心特点：
+1.无需手动定义更新函数，只需指定目标数值
+2.自动获取数字当前值作为起始值
+3.使用interpolate函数实现线性插值，确保数值变化平滑自然
+"""
 # 定义ChangeDecimalToValue类，继承自ChangingDecimal，用于实现数字从当前值平滑过渡到目标值的动画
 class ChangeDecimalToValue(ChangingDecimal):
     def __init__(
@@ -69,6 +86,15 @@ class ChangeDecimalToValue(ChangingDecimal):
         )
 
 
+
+"""
+CountInFrom类是ChangingDecimal的子类，专门实现 "从指定数值计数到当前值" 的动画效果
+核心特点：
+1.与ChangeDecimalToValue方向相反：从源数值过渡到物体当前的数值
+2.源数值默认为 0，可自定义（如从 5 计数到当前的 10）
+3.使用clip(a, 0, 1)确保插值比例始终在有效范围内，避免数值异常
+4.通过interpolate函数实现平滑的数值过渡
+"""
 # 定义CountInFrom类，继承自ChangingDecimal，用于实现数字从指定源数值递增/递减到当前值的动画
 class CountInFrom(ChangingDecimal):
     def __init__(
