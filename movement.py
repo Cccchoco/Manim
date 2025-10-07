@@ -23,6 +23,15 @@ if TYPE_CHECKING:
     from manimlib.mobject.types.vectorized_mobject import VMobject
 
 
+
+"""
+实现了基于同伦函数的通用动画变换
+核心原理：
+1.通过一个自定义的同伦函数控制物体的连续变形
+2.同伦函数接收空间坐标 (x,y,z) 和时间参数 t (0 到 1)，返回变换后的坐标
+3.动画过程中，随着时间进度 alpha 从 0 到 1 变化，不断应用对应时刻的变换函数
+4.实现物体从初始状态到目标状态的平滑过渡
+"""
 # 定义Homotopy类，继承自Animation，用于实现同伦变换动画
 # 同伦变换是一种连续变形，通过函数将物体从初始状态平滑过渡到目标状态
 class Homotopy(Animation):
@@ -70,6 +79,14 @@ class Homotopy(Animation):
         )
 
 
+
+"""
+Homotopy子类
+作用：
+1.继承了Homotopy的所有同伦变换功能，保持了通过函数实现连续变形的特性
+2.重写了apply_function_config类属性，默认添加make_smooth=True参数
+3.确保在对矢量物体 (VMobject) 应用变换时，能自动进行平滑处理，避免出现锯齿或变形 artifacts
+"""
 # 定义SmoothedVectorizedHomotopy类，继承自Homotopy，用于实现平滑的矢量同伦变换动画
 class SmoothedVectorizedHomotopy(Homotopy):
     # 应用函数的配置字典，设置make_smooth=True以确保变换过程平滑
@@ -77,6 +94,17 @@ class SmoothedVectorizedHomotopy(Homotopy):
     apply_function_config: dict = dict(make_smooth=True)
 
 
+
+"""
+核心功能是将复平面上的变换扩展到三维空间
+特点：
+1.接收一个复变函数（处理复数输入输出），而非直接处理三维坐标
+2.内部将复变函数转换为适用于 3D 空间的同伦函数：
+ 把 x,y 坐标视为复数的实部和虚部
+ 变换仅作用于 x,y 平面（z 坐标保持不变）
+ 将变换后的复数实部和虚部分别作为新的 x,y 坐标
+3.继承了Homotopy类的所有动画特性，实现复平面变换的平滑动画效果
+"""
 # 定义ComplexHomotopy类，继承自Homotopy，用于处理复平面上的同伦变换动画
 class ComplexHomotopy(Homotopy):
     def __init__(
@@ -102,6 +130,14 @@ class ComplexHomotopy(Homotopy):
         super().__init__(homotopy, mobject,** kwargs)
 
 
+
+"""
+实现了基于向量场的动画效果
+工作原理：
+1.通过一个向量场函数function定义空间中每个点的运动方向和速度
+2.动画过程中，物体上的每个点会根据向量场和时间流逝不断更新位置
+3.采用增量更新方式：每帧只计算与上一帧的位置变化，避免累积误差
+"""
 # 定义PhaseFlow类，继承自Animation，用于实现基于向量场的相位流动画
 class PhaseFlow(Animation):
     def __init__(
@@ -141,6 +177,15 @@ class PhaseFlow(Animation):
         self.last_alpha = alpha
 
 
+
+"""
+核心功能是使物体沿着预先定义的路径移动
+工作原理：
+1.接收一个path参数（矢量物体）作为移动轨迹
+2.动画过程中，根据当前进度alpha（0 到 1）计算路径上的对应位置
+3.通过rate_func可以控制移动速率（如匀速、加速、减速等）
+4.每帧将物体移动到路径上的对应点，形成沿路径运动的动画效果
+"""
 # 定义MoveAlongPath类，继承自Animation，用于实现物体沿指定路径移动的动画
 class MoveAlongPath(Animation):
     def __init__(
