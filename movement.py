@@ -1,16 +1,25 @@
+# 从__future__导入annotations，支持在类型注解中使用尚未定义的类
 from __future__ import annotations
 
+# 从manimlib.animation.animation模块导入Animation类，用于动画基础类
 from manimlib.animation.animation import Animation
+# 从manimlib.utils.rate_functions模块导入linear函数，用于线性速率控制
 from manimlib.utils.rate_functions import linear
 
+# 从typing模块导入TYPE_CHECKING，用于条件导入类型提示
 from typing import TYPE_CHECKING
 
+# 如果是类型检查阶段（非运行时），则导入所需的类型提示
 if TYPE_CHECKING:
+    # 从typing模块导入Callable（可调用对象类型）和Sequence（序列类型）
     from typing import Callable, Sequence
 
+    # 导入numpy并别名np，用于numpy相关类型注解
     import numpy as np
 
+    # 从manimlib.mobject.mobject导入Mobject类，用于物体类型注解
     from manimlib.mobject.mobject import Mobject
+    # 从manimlib.mobject.types.vectorized_mobject导入VMobject类，用于矢量物体类型注解
     from manimlib.mobject.types.vectorized_mobject import VMobject
 
 
