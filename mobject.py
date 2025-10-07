@@ -869,111 +869,137 @@ def arrange_to_fit_dim(self, length: float, dim: int, about_edge=ORIGIN) -> Self
     # 返回自身以支持链式调用
     return self
 
-    def arrange_to_fit_width(self, width: float, about_edge=ORIGIN) -> Self:
-        return self.arrange_to_fit_dim(width, 0, about_edge)
+def arrange_to_fit_width(self, width: float, about_edge=ORIGIN) -> Self:
+    # 调用arrange_to_fit_dim方法，指定宽度方向(0维)进行排列调整
+    return self.arrange_to_fit_dim(width, 0, about_edge)
 
-    def arrange_to_fit_height(self, height: float, about_edge=ORIGIN) -> Self:
-        return self.arrange_to_fit_dim(height, 1, about_edge)
+def arrange_to_fit_height(self, height: float, about_edge=ORIGIN) -> Self:
+    # 调用arrange_to_fit_dim方法，指定高度方向(1维)进行排列调整
+    return self.arrange_to_fit_dim(height, 1, about_edge)
 
-    def arrange_to_fit_depth(self, depth: float, about_edge=ORIGIN) -> Self:
-        return self.arrange_to_fit_dim(depth, 2, about_edge)
+def arrange_to_fit_depth(self, depth: float, about_edge=ORIGIN) -> Self:
+    # 调用arrange_to_fit_dim方法，指定深度方向(2维)进行排列调整
+    return self.arrange_to_fit_dim(depth, 2, about_edge)
 
-    def sort(
-        self,
-        point_to_num_func: Callable[[np.ndarray], float] = lambda p: p[0],
-        submob_func: Callable[[Mobject]] | None = None
-    ) -> Self:
-        if submob_func is not None:
-            self.submobjects.sort(key=submob_func)
-        else:
-            self.submobjects.sort(key=lambda m: point_to_num_func(m.get_center()))
-        self.note_changed_family(only_changed_order=True)
-        return self
+def sort(
+    self,
+    point_to_num_func: Callable[[np.ndarray], float] = lambda p: p[0],
+    submob_func: Callable[[Mobject]] | None = None
+) -> Self:
+    # 如果提供了子对象排序函数，则使用该函数对submobjects进行排序
+    if submob_func is not None:
+        self.submobjects.sort(key=submob_func)
+    # 否则使用默认的中心点排序函数（按x坐标排序）
+    else:
+        self.submobjects.sort(key=lambda m: point_to_num_func(m.get_center()))
+    # 通知家族成员顺序已改变（仅顺序改变）
+    self.note_changed_family(only_changed_order=True)
+    return self
 
-    def shuffle(self, recurse: bool = False) -> Self:
-        if recurse:
-            for submob in self.submobjects:
-                submob.shuffle(recurse=True)
-        random.shuffle(self.submobjects)
-        self.note_changed_family(only_changed_order=True)
-        return self
+def shuffle(self, recurse: bool = False) -> Self:
+    # 如果需要递归打乱，则对每个子对象也执行shuffle
+    if recurse:
+        for submob in self.submobjects:
+            submob.shuffle(recurse=True)
+    # 随机打乱当前对象的submobjects顺序
+    random.shuffle(self.submobjects)
+    # 通知家族成员顺序已改变（仅顺序改变）
+    self.note_changed_family(only_changed_order=True)
+    return self
 
-    def reverse_submobjects(self) -> Self:
-        self.submobjects.reverse()
-        self.note_changed_family(only_changed_order=True)
-        return self
+def reverse_submobjects(self) -> Self:
+    # 反转submobjects列表的顺序
+    self.submobjects.reverse()
+    # 通知家族成员顺序已改变（仅顺序改变）
+    self.note_changed_family(only_changed_order=True)
+    return self
 
-    # Copying and serialization
+# 复制和序列化相关方法
 
-    @staticmethod
-    def stash_mobject_pointers(func: Callable[..., T]) -> Callable[..., T]:
-        @wraps(func)
-        def wrapper(self, *args, **kwargs):
-            uncopied_attrs = ["parents", "target", "saved_state"]
-            stash = dict()
-            for attr in uncopied_attrs:
-                if hasattr(self, attr):
-                    value = getattr(self, attr)
-                    stash[attr] = value
-                    null_value = [] if isinstance(value, list) else None
-                    setattr(self, attr, null_value)
-            result = func(self, *args, **kwargs)
-            self.__dict__.update(stash)
-            return result
-        return wrapper
-
-    @stash_mobject_pointers
-    def serialize(self) -> bytes:
-        return pickle.dumps(self)
-
-    def deserialize(self, data: bytes) -> Self:
-        self.become(pickle.loads(data))
-        return self
-
-    @stash_mobject_pointers
-    def deepcopy(self) -> Self:
-        return copy.deepcopy(self)
-
-    def copy(self, deep: bool = False) -> Self:
-        if deep:
-            return self.deepcopy()
-
-        result = copy.copy(self)
-
-        result.parents = []
-        result.target = None
-        result.saved_state = None
-
-        # copy.copy is only a shallow copy, so the internal
-        # data which are numpy arrays or other mobjects still
-        # need to be further copied.
-        result.uniforms = {
-            key: value.copy() if isinstance(value, np.ndarray) else value
-            for key, value in self.uniforms.items()
-        }
-
-        # Instead of adding using result.add, which does some checks for updating
-        # updater statues and bounding box, just directly modify the family-related
-        # lists
-        result.submobjects = [sm.copy() for sm in self.submobjects]
-        for sm in result.submobjects:
-            sm.parents = [result]
-        result.family = [result, *it.chain(*(sm.get_family() for sm in result.submobjects))]
-
-        # Similarly, instead of calling match_updaters, since we know the status
-        # won't have changed, just directly match.
-        result.updaters = list(self.updaters)
-        result._data_has_changed = True
-        result.shader_wrapper = None
-
-        family = self.get_family()
-        for attr, value in self.__dict__.items():
-            if isinstance(value, Mobject) and value is not self:
-                if value in family:
-                    setattr(result, attr, result.family[family.index(value)])
-            elif isinstance(value, np.ndarray):
-                setattr(result, attr, value.copy())
+@staticmethod
+def stash_mobject_pointers(func: Callable[..., T]) -> Callable[..., T]:
+    # 装饰器：用于在序列化/深拷贝前暂存不需要复制的Mobject指针属性
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        # 不需要复制的属性列表
+        uncopied_attrs = ["parents", "target", "saved_state"]
+        # 用于暂存属性值的字典
+        stash = dict()
+        # 暂存并清空指定属性
+        for attr in uncopied_attrs:
+            if hasattr(self, attr):
+                value = getattr(self, attr)
+                stash[attr] = value
+                # 根据属性类型设置空值（列表类型用空列表，其他用None）
+                null_value = [] if isinstance(value, list) else None
+                setattr(self, attr, null_value)
+        # 执行被装饰的函数（序列化/深拷贝）
+        result = func(self, *args, **kwargs)
+        # 恢复暂存的属性值
+        self.__dict__.update(stash)
         return result
+    return wrapper
+
+@stash_mobject_pointers
+def serialize(self) -> bytes:
+    # 使用pickle序列化当前对象，返回字节流
+    return pickle.dumps(self)
+
+def deserialize(self, data: bytes) -> Self:
+    # 从字节流反序列化对象，并替换当前对象的内容
+    self.become(pickle.loads(data))
+    return self
+
+@stash_mobject_pointers
+def deepcopy(self) -> Self:
+    # 创建当前对象的深拷贝
+    return copy.deepcopy(self)
+
+def copy(self, deep: bool = False) -> Self:
+    # 如果需要深拷贝，调用deepcopy方法
+    if deep:
+        return self.deepcopy()
+
+    # 否则进行浅拷贝
+    result = copy.copy(self)
+
+    # 重置父对象、目标和保存状态
+    result.parents = []
+    result.target = None
+    result.saved_state = None
+
+    # 对uniforms中的numpy数组进行拷贝，其他值保持引用
+    result.uniforms = {
+        key: value.copy() if isinstance(value, np.ndarray) else value
+        for key, value in self.uniforms.items()
+    }
+
+    # 直接复制子对象列表（不使用add方法以避免额外检查）
+    result.submobjects = [sm.copy() for sm in self.submobjects]
+    # 更新子对象的父指针为当前复制出的对象
+    for sm in result.submobjects:
+        sm.parents = [result]
+    # 构建家族成员列表
+    result.family = [result, *it.chain(*(sm.get_family() for sm in result.submobjects))]
+
+    # 复制更新器列表
+    result.updaters = list(self.updaters)
+    # 标记数据已更改
+    result._data_has_changed = True
+    # 重置着色器包装器
+    result.shader_wrapper = None
+
+    # 处理其他属性的拷贝
+    family = self.get_family()
+    for attr, value in self.__dict__.items():
+        # 如果属性是家族中的Mobject，替换为对应拷贝对象
+        if isinstance(value, Mobject) and value is not self:
+            if value in family:
+                setattr(result, attr, result.family[family.index(value)])
+        # 如果属性是numpy数组，进行拷贝
+        elif isinstance(value, np.ndarray):
+            setattr(result, attr, value.copy())
+    return result
 
     def generate_target(self, use_deepcopy: bool = False) -> Self:
         self.target = self.copy(deep=use_deepcopy)
