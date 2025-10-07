@@ -1001,80 +1001,108 @@ def copy(self, deep: bool = False) -> Self:
             setattr(result, attr, value.copy())
     return result
 
-    def generate_target(self, use_deepcopy: bool = False) -> Self:
-        self.target = self.copy(deep=use_deepcopy)
-        self.target.saved_state = self.saved_state
-        return self.target
+def generate_target(self, use_deepcopy: bool = False) -> Self:
+    # 生成当前对象的目标对象（用于动画过渡等场景）
+    # 使用指定的复制方式（深拷贝或浅拷贝）创建副本作为目标对象
+    self.target = self.copy(deep=use_deepcopy)
+    # 将当前对象的保存状态同步到目标对象
+    self.target.saved_state = self.saved_state
+    return self.target
 
-    def save_state(self, use_deepcopy: bool = False) -> Self:
-        self.saved_state = self.copy(deep=use_deepcopy)
-        self.saved_state.target = self.target
-        return self
+def save_state(self, use_deepcopy: bool = False) -> Self:
+    # 保存当前对象的状态，用于后续恢复
+    # 使用指定的复制方式创建当前状态的副本
+    self.saved_state = self.copy(deep=use_deepcopy)
+    # 将当前的目标对象引用同步到保存的状态中
+    self.saved_state.target = self.target
+    return self
 
-    def restore(self) -> Self:
-        if not hasattr(self, "saved_state") or self.saved_state is None:
-            raise Exception("Trying to restore without having saved")
-        self.become(self.saved_state)
-        return self
+def restore(self) -> Self:
+    # 从之前保存的状态恢复对象
+    # 检查是否有保存的状态，没有则抛出异常
+    if not hasattr(self, "saved_state") or self.saved_state is None:
+        raise Exception("Trying to restore without having saved")
+    # 使当前对象变成保存状态的副本
+    self.become(self.saved_state)
+    return self
 
-    def become(self, mobject: Mobject, match_updaters=False) -> Self:
-        """
-        Edit all data and submobjects to be idential
-        to another mobject
-        """
-        self.align_family(mobject)
-        family1 = self.get_family()
-        family2 = mobject.get_family()
-        for sm1, sm2 in zip(family1, family2):
-            sm1.set_data(sm2.data)
-            sm1.set_uniforms(sm2.uniforms)
-            sm1.bounding_box[:] = sm2.bounding_box
-            sm1.shader_folder = sm2.shader_folder
-            sm1.texture_paths = sm2.texture_paths
-            sm1.depth_test = sm2.depth_test
-            sm1.render_primitive = sm2.render_primitive
-            sm1._needs_new_bounding_box = sm2._needs_new_bounding_box
-        # Make sure named family members carry over
-        for attr, value in list(mobject.__dict__.items()):
-            if isinstance(value, Mobject) and value in family2:
-                setattr(self, attr, family1[family2.index(value)])
-        if match_updaters:
-            self.match_updaters(mobject)
-        return self
+def become(self, mobject: Mobject, match_updaters=False) -> Self:
+    """
+    编辑所有数据和子对象，使其与另一个mobject完全相同
+    """
+    # 对齐两个对象的家族结构（确保子对象层级一致）
+    self.align_family(mobject)
+    # 获取两个对象的家族成员列表
+    family1 = self.get_family()
+    family2 = mobject.get_family()
+    # 逐个同步家族成员的属性
+    for sm1, sm2 in zip(family1, family2):
+        sm1.set_data(sm2.data)               # 同步数据
+        sm1.set_uniforms(sm2.uniforms)       # 同步 uniforms
+        sm1.bounding_box[:] = sm2.bounding_box  # 同步边界框
+        sm1.shader_folder = sm2.shader_folder  # 同步着色器文件夹
+        sm1.texture_paths = sm2.texture_paths  # 同步纹理路径
+        sm1.depth_test = sm2.depth_test      # 同步深度测试设置
+        sm1.render_primitive = sm2.render_primitive  # 同步渲染图元
+        sm1._needs_new_bounding_box = sm2._needs_new_bounding_box  # 同步边界框更新标记
+    # 确保命名的家族成员引用正确传递
+    for attr, value in list(mobject.__dict__.items()):
+        if isinstance(value, Mobject) and value in family2:
+            # 将属性引用映射到当前对象家族中对应的成员
+            setattr(self, attr, family1[family2.index(value)])
+    # 如果需要，同步更新器
+    if match_updaters:
+        self.match_updaters(mobject)
+    return self
 
-    def looks_identical(self, mobject: Mobject) -> bool:
-        fam1 = self.family_members_with_points()
-        fam2 = mobject.family_members_with_points()
-        if len(fam1) != len(fam2):
+def looks_identical(self, mobject: Mobject) -> bool:
+    # 检查当前对象与另一个对象是否看起来完全相同
+    # 获取包含点数据的家族成员
+    fam1 = self.family_members_with_points()
+    fam2 = mobject.family_members_with_points()
+    # 家族成员数量不同则不相同
+    if len(fam1) != len(fam2):
+        return False
+    # 逐个检查家族成员的属性
+    for m1, m2 in zip(fam1, fam2):
+        # 点数量不同则不相同
+        if m1.get_num_points() != m2.get_num_points():
             return False
-        for m1, m2 in zip(fam1, fam2):
-            if m1.get_num_points() != m2.get_num_points():
-                return False
-            if not m1.data.dtype == m2.data.dtype:
-                return False
-            for key in m1.data.dtype.names:
-                if not np.isclose(m1.data[key], m2.data[key]).all():
-                    return False
-            if set(m1.uniforms).difference(m2.uniforms):
-                return False
-            for key in m1.uniforms:
-                value1 = m1.uniforms[key]
-                value2 = m2.uniforms[key]
-                if isinstance(value1, np.ndarray) and isinstance(value2, np.ndarray) and not value1.size == value2.size:
-                    return False
-                if not np.isclose(value1, value2).all():
-                    return False
-        return True
-
-    def has_same_shape_as(self, mobject: Mobject) -> bool:
-        # Normalize both point sets by centering and making height 1
-        points1, points2 = (
-            (m.get_all_points() - m.get_center()) / m.get_height()
-            for m in (self, mobject)
-        )
-        if len(points1) != len(points2):
+        # 数据类型不同则不相同
+        if not m1.data.dtype == m2.data.dtype:
             return False
-        return bool(np.isclose(points1, points2, atol=self.get_width() * 1e-2).all())
+        # 检查数据中每个字段是否接近
+        for key in m1.data.dtype.names:
+            if not np.isclose(m1.data[key], m2.data[key]).all():
+                return False
+        # 检查uniforms的键是否一致
+        if set(m1.uniforms).difference(m2.uniforms):
+            return False
+        # 检查每个uniform的值是否接近
+        for key in m1.uniforms:
+            value1 = m1.uniforms[key]
+            value2 = m2.uniforms[key]
+            # 数组大小不同则不相同
+            if isinstance(value1, np.ndarray) and isinstance(value2, np.ndarray) and not value1.size == value2.size:
+                return False
+            # 值不接近则不相同
+            if not np.isclose(value1, value2).all():
+                return False
+    # 所有检查通过，认为相同
+    return True
+
+def has_same_shape_as(self, mobject: Mobject) -> bool:
+    # 检查当前对象与另一个对象是否具有相同的形状（忽略位置和大小差异）
+    # 通过中心化和归一化高度来标准化点集
+    points1, points2 = (
+        (m.get_all_points() - m.get_center()) / m.get_height()
+        for m in (self, mobject)
+    )
+    # 点数量不同则形状不同
+    if len(points1) != len(points2):
+        return False
+    # 检查标准化后的点是否接近（容差为宽度的1%）
+    return bool(np.isclose(points1, points2, atol=self.get_width() * 1e-2).all())
 
     # Creating new Mobjects from this one
 
