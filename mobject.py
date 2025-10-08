@@ -1666,94 +1666,127 @@ def set_shape(
         self.set_depth(depth, stretch=True, **kwargs)
     return self
 
-    def set_coord(self, value: float, dim: int, direction: Vect3 = ORIGIN) -> Self:
-        curr = self.get_coord(dim, direction)
-        shift_vect = np.zeros(self.dim)
-        shift_vect[dim] = value - curr
-        self.shift(shift_vect)
+def set_coord(self, value: float, dim: int, direction: Vect3 = ORIGIN) -> Self:
+    # 获取对象在指定维度、指定方向上的当前坐标
+    curr = self.get_coord(dim, direction)
+    # 创建维度与对象匹配的零向量（用于存储平移量）
+    shift_vect = np.zeros(self.dim)
+    # 计算指定维度的平移量：目标值 - 当前值
+    shift_vect[dim] = value - curr
+    # 执行平移，将对象指定维度的坐标设置为目标值
+    self.shift(shift_vect)
+    return self
+
+def set_x(self, x: float, direction: Vect3 = ORIGIN) -> Self:
+    # 设置对象X轴坐标（维度0），复用set_coord方法
+    return self.set_coord(x, 0, direction)
+
+def set_y(self, y: float, direction: Vect3 = ORIGIN) -> Self:
+    # 设置对象Y轴坐标（维度1），复用set_coord方法
+    return self.set_coord(y, 1, direction)
+
+def set_z(self, z: float, direction: Vect3 = ORIGIN) -> Self:
+    # 设置对象Z轴坐标（维度2），复用set_coord方法
+    return self.set_coord(z, 2, direction)
+
+def set_z_index(self, z_index: int) -> Self:
+    # 设置对象的Z索引（用于控制渲染层级，Z索引高的对象优先渲染）
+    self.z_index = z_index
+    return self
+
+def space_out_submobjects(self, factor: float = 1.5, **kwargs) -> Self:
+    # 先整体缩放当前对象（放大factor倍），拉开子对象间距
+    self.scale(factor,** kwargs)
+    # 再将每个子对象缩小回原尺寸（1/factor倍），保持子对象大小不变
+    for submob in self.submobjects:
+        submob.scale(1. / factor)
+    return self
+
+def move_to(
+    self,
+    point_or_mobject: Mobject | Vect3,
+    aligned_edge: Vect3 = ORIGIN,
+    coor_mask: Vect3 = np.array([1, 1, 1])
+) -> Self:
+    # 处理目标为Mobject的情况：获取目标对象指定对齐边缘的边界点
+    if isinstance(point_or_mobject, Mobject):
+        target = point_or_mobject.get_bounding_box_point(aligned_edge)
+    # 处理目标为点的情况：直接使用该点作为目标点
+    else:
+        target = point_or_mobject
+    # 获取当前对象指定对齐边缘的边界点（待对齐的点）
+    point_to_align = self.get_bounding_box_point(aligned_edge)
+    # 计算平移量：(目标点 - 待对齐点) × 坐标掩码（过滤不需要平移的维度）
+    self.shift((target - point_to_align) * coor_mask)
+    return self
+
+def replace(self, mobject: Mobject, dim_to_match: int = 0, stretch: bool = False) -> Self:
+    # 若目标对象无点数据且无子对象（空对象），将当前对象缩放到0（隐藏）
+    if not mobject.get_num_points() and not mobject.submobjects:
+        self.scale(0)
         return self
-
-    def set_x(self, x: float, direction: Vect3 = ORIGIN) -> Self:
-        return self.set_coord(x, 0, direction)
-
-    def set_y(self, y: float, direction: Vect3 = ORIGIN) -> Self:
-        return self.set_coord(y, 1, direction)
-
-    def set_z(self, z: float, direction: Vect3 = ORIGIN) -> Self:
-        return self.set_coord(z, 2, direction)
-
-    def set_z_index(self, z_index: int) -> Self:
-        self.z_index = z_index
-        return self
-
-    def space_out_submobjects(self, factor: float = 1.5, **kwargs) -> Self:
-        self.scale(factor, **kwargs)
-        for submob in self.submobjects:
-            submob.scale(1. / factor)
-        return self
-
-    def move_to(
-        self,
-        point_or_mobject: Mobject | Vect3,
-        aligned_edge: Vect3 = ORIGIN,
-        coor_mask: Vect3 = np.array([1, 1, 1])
-    ) -> Self:
-        if isinstance(point_or_mobject, Mobject):
-            target = point_or_mobject.get_bounding_box_point(aligned_edge)
-        else:
-            target = point_or_mobject
-        point_to_align = self.get_bounding_box_point(aligned_edge)
-        self.shift((target - point_to_align) * coor_mask)
-        return self
-
-    def replace(self, mobject: Mobject, dim_to_match: int = 0, stretch: bool = False) -> Self:
-        if not mobject.get_num_points() and not mobject.submobjects:
-            self.scale(0)
-            return self
-        if stretch:
-            for i in range(self.dim):
-                self.rescale_to_fit(mobject.length_over_dim(i), i, stretch=True)
-        else:
-            self.rescale_to_fit(
-                mobject.length_over_dim(dim_to_match),
-                dim_to_match,
-                stretch=False
-            )
-        self.shift(mobject.get_center() - self.get_center())
-        return self
-
-    def surround(
-        self,
-        mobject: Mobject,
-        dim_to_match: int = 0,
-        stretch: bool = False,
-        buff: float = MED_SMALL_BUFF
-    ) -> Self:
-        self.replace(mobject, dim_to_match, stretch)
-        length = mobject.length_over_dim(dim_to_match)
-        self.scale((length + buff) / length)
-        return self
-
-    def put_start_and_end_on(self, start: Vect3, end: Vect3) -> Self:
-        curr_start, curr_end = self.get_start_and_end()
-        curr_vect = curr_end - curr_start
-        if np.all(curr_vect == 0):
-            raise Exception("Cannot position endpoints of closed loop")
-        target_vect = end - start
-        self.scale(
-            get_norm(target_vect) / get_norm(curr_vect),
-            about_point=curr_start,
+    # 拉伸模式：按目标对象的每个维度单独拉伸当前对象
+    if stretch:
+        for i in range(self.dim):
+            self.rescale_to_fit(mobject.length_over_dim(i), i, stretch=True)
+    # 非拉伸模式：仅按指定维度缩放当前对象（保持原比例）
+    else:
+        self.rescale_to_fit(
+            mobject.length_over_dim(dim_to_match),  # 目标对象指定维度的长度
+            dim_to_match,                          # 待匹配的维度
+            stretch=False                          # 禁用拉伸（整体缩放）
         )
-        self.rotate(
-            angle_of_vector(target_vect) - angle_of_vector(curr_vect),
-        )
-        self.rotate(
-            np.arctan2(curr_vect[2], get_norm(curr_vect[:2])) - np.arctan2(target_vect[2], get_norm(target_vect[:2])),
-            axis=np.array([-target_vect[1], target_vect[0], 0]),
-        )
-        self.shift(start - self.get_start())
-        return self
+    # 将当前对象平移到目标对象的中心点位置
+    self.shift(mobject.get_center() - self.get_center())
+    return self
 
+def surround(
+    self,
+    mobject: Mobject,
+    dim_to_match: int = 0,
+    stretch: bool = False,
+    buff: float = MED_SMALL_BUFF
+) -> Self:
+    # 先调用replace方法，使当前对象与目标对象尺寸、位置初步匹配
+    self.replace(mobject, dim_to_match, stretch)
+    # 获取目标对象指定维度的长度
+    length = mobject.length_over_dim(dim_to_match)
+    # 缩放当前对象，在目标对象基础上增加指定间距（实现"包围"效果）
+    self.scale((length + buff) / length)
+    return self
+
+def put_start_and_end_on(self, start: Vect3, end: Vect3) -> Self:
+    # 获取当前对象的起始点和终止点（如线段的两端）
+    curr_start, curr_end = self.get_start_and_end()
+    # 计算当前对象起始点到终止点的向量
+    curr_vect = curr_end - curr_start
+    # 若当前向量为零向量（闭合图形），抛出异常（无法定位闭合图形的端点）
+    if np.all(curr_vect == 0):
+        raise Exception("Cannot position endpoints of closed loop")
+    # 计算目标起始点到目标终止点的向量
+    target_vect = end - start
+
+    # 1. 缩放当前对象：使当前向量长度匹配目标向量长度（围绕当前起始点缩放）
+    self.scale(
+        get_norm(target_vect) / get_norm(curr_vect),  # 缩放因子：目标长度/当前长度
+        about_point=curr_start,                       # 围绕当前起始点缩放（避免起始点偏移）
+    )
+
+    # 2. 2D平面旋转：使当前向量在XY平面的角度匹配目标向量
+    self.rotate(
+        angle_of_vector(target_vect) - angle_of_vector(curr_vect),  # 旋转角度差
+    )
+
+    # 3. 3D空间旋转：调整Z轴方向的角度，使当前向量完全匹配目标向量的3D方向
+    self.rotate(
+        # 计算Z轴方向的角度差：当前向量的Z角 - 目标向量的Z角
+        np.arctan2(curr_vect[2], get_norm(curr_vect[:2])) - np.arctan2(target_vect[2], get_norm(target_vect[:2])),
+        axis=np.array([-target_vect[1], target_vect[0], 0]),  # 旋转轴：垂直于目标向量的XY平面法向量
+    )
+
+    # 4. 平移当前对象：将当前起始点移动到目标起始点
+    self.shift(start - self.get_start())
+    return self
     # Color functions
 
     @affects_family_data
