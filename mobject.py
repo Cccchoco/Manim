@@ -2368,134 +2368,163 @@ def push_self_into_submobjects(self) -> Self:
     self.add(copy)
     return self
 
-    def add_n_more_submobjects(self, n: int) -> Self:
-        if n == 0:
-            return self
-
-        curr = len(self.submobjects)
-        if curr == 0:
-            # If empty, simply add n point mobjects
-            null_mob = self.copy()
-            null_mob.set_points([self.get_center()])
-            self.set_submobjects([
-                null_mob.copy()
-                for k in range(n)
-            ])
-            return self
-        target = curr + n
-        repeat_indices = (np.arange(target) * curr) // target
-        split_factors = [
-            (repeat_indices == i).sum()
-            for i in range(curr)
-        ]
-        new_submobs = []
-        for submob, sf in zip(self.submobjects, split_factors):
-            new_submobs.append(submob)
-            for k in range(1, sf):
-                new_submobs.append(submob.invisible_copy())
-        self.set_submobjects(new_submobs)
+def add_n_more_submobjects(self, n: int) -> Self:
+    # 如果不需要添加子对象（n=0），直接返回
+    if n == 0:
         return self
 
-    def invisible_copy(self) -> Self:
-        return self.copy().set_opacity(0)
-
-    # Interpolate
-
-    def interpolate(
-        self,
-        mobject1: Mobject,
-        mobject2: Mobject,
-        alpha: float,
-        path_func: Callable[[np.ndarray, np.ndarray, float], np.ndarray] = straight_path
-    ) -> Self:
-        keys = [k for k in self.data.dtype.names if k not in self.locked_data_keys]
-        if keys:
-            self.note_changed_data()
-        for key in keys:
-            md1 = mobject1.data[key]
-            md2 = mobject2.data[key]
-            if key in self.const_data_keys:
-                md1 = md1[0]
-                md2 = md2[0]
-            if key in self.pointlike_data_keys:
-                self.data[key] = path_func(md1, md2, alpha)
-            else:
-                self.data[key] = (1 - alpha) * md1 + alpha * md2
-
-        for key in self.uniforms:
-            if key in self.locked_uniform_keys:
-                continue
-            if key not in mobject1.uniforms or key not in mobject2.uniforms:
-                continue
-            self.uniforms[key] = (1 - alpha) * mobject1.uniforms[key] + alpha * mobject2.uniforms[key]
-        self.bounding_box[:] = path_func(mobject1.bounding_box, mobject2.bounding_box, alpha)
+    # 获取当前子对象的数量
+    curr = len(self.submobjects)
+    # 如果当前没有子对象，创建n个空点对象作为子对象
+    if curr == 0:
+        # 创建一个空的参考对象，点数据设为当前对象的中心点
+        null_mob = self.copy()
+        null_mob.set_points([self.get_center()])
+        # 设置n个空对象副本作为子对象
+        self.set_submobjects([
+            null_mob.copy() for k in range(n)
+        ])
         return self
 
-    def pointwise_become_partial(self, mobject, a, b) -> Self:
-        """
-        Set points in such a way as to become only
-        part of mobject.
-        Inputs 0 <= a < b <= 1 determine what portion
-        of mobject to become.
-        """
-        # To be implemented in subclass
+    # 计算目标子对象总数（当前数量 + 需添加数量）
+    target = curr + n
+    # 计算每个现有子对象需要重复的次数（均匀分配新增数量）
+    repeat_indices = (np.arange(target) * curr) // target
+    split_factors = [
+        (repeat_indices == i).sum() for i in range(curr)
+    ]
+
+    # 生成新的子对象列表
+    new_submobs = []
+    for submob, sf in zip(self.submobjects, split_factors):
+        # 添加原有的子对象
+        new_submobs.append(submob)
+        # 添加sf-1个不可见的副本（补全数量）
+        for k in range(1, sf):
+            new_submobs.append(submob.invisible_copy())
+    # 更新子对象列表
+    self.set_submobjects(new_submobs)
+    return self
+
+def invisible_copy(self) -> Self:
+    # 创建当前对象的不可见副本（透明度设为0）
+    return self.copy().set_opacity(0)
+
+# 插值相关方法
+
+def interpolate(
+    self,
+    mobject1: Mobject,
+    mobject2: Mobject,
+    alpha: float,
+    path_func: Callable[[np.ndarray, np.ndarray, float], np.ndarray] = straight_path
+) -> Self:
+    # 确定需要插值的数据字段（排除锁定的数据键）
+    keys = [k for k in self.data.dtype.names if k not in self.locked_data_keys]
+    # 如果有需要更新的数据，标记数据已更改
+    if keys:
+        self.note_changed_data()
+
+    # 对每个需要插值的数据字段执行插值
+    for key in keys:
+        md1 = mobject1.data[key]  # 第一个对象的数据
+        md2 = mobject2.data[key]  # 第二个对象的数据
+
+        # 处理常量数据字段（所有点共享同一值）
+        if key in self.const_data_keys:
+            md1 = md1[0]  # 取第一个点的值作为代表
+            md2 = md2[0]
+
+        # 对点类数据使用路径函数插值（如位置、颜色等）
+        if key in self.pointlike_data_keys:
+            self.data[key] = path_func(md1, md2, alpha)
+        # 对其他数据使用线性插值
+        else:
+            self.data[key] = (1 - alpha) * md1 + alpha * md2
+
+    # 对uniforms执行插值（排除锁定的uniform键）
+    for key in self.uniforms:
+        if key in self.locked_uniform_keys:
+            continue  # 跳过锁定的uniform
+        # 确保两个对象都有该uniform才进行插值
+        if key not in mobject1.uniforms or key not in mobject2.uniforms:
+            continue
+        self.uniforms[key] = (1 - alpha) * mobject1.uniforms[key] + alpha * mobject2.uniforms[key]
+
+    # 对边界框执行插值
+    self.bounding_box[:] = path_func(mobject1.bounding_box, mobject2.bounding_box, alpha)
+    return self
+
+def pointwise_become_partial(self, mobject, a, b) -> Self:
+    """
+    按点设置当前对象，使其成为目标对象的一部分
+    输入参数0 <= a < b <= 1 确定要成为目标对象的哪一部分
+    """
+    # 需在子类中实现具体逻辑
+    return self
+
+# 数据锁定相关方法
+
+def lock_data(self, keys: Iterable[str]) -> Self:
+    """
+    为加速某些动画（尤其是变换动画），可以标记哪些数据
+    在动画过程中不会改变，这样插值时可以跳过这些数据，
+    也避免不必要地读取到shader_wrapper中
+    """
+    # 如果有更新器，不锁定数据（更新器可能会修改数据）
+    if self.has_updaters():
         return self
+    # 记录锁定的数据键
+    self.locked_data_keys = set(keys)
+    return self
 
-    # Locking data
-
-    def lock_data(self, keys: Iterable[str]) -> Self:
-        """
-        To speed up some animations, particularly transformations,
-        it can be handy to acknowledge which pieces of data
-        won't change during the animation so that calls to
-        interpolate can skip this, and so that it's not
-        read into the shader_wrapper objects needlessly
-        """
-        if self.has_updaters():
-            return self
-        self.locked_data_keys = set(keys)
+def lock_uniforms(self, keys: Iterable[str]) -> Self:
+    # 如果有更新器，不锁定uniforms
+    if self.has_updaters():
         return self
+    # 记录锁定的uniform键
+    self.locked_uniform_keys = set(keys)
+    return self
 
-    def lock_uniforms(self, keys: Iterable[str]) -> Self:
-        if self.has_updaters():
-            return self
-        self.locked_uniform_keys = set(keys)
-        return self
-
-    def lock_matching_data(self, mobject1: Mobject, mobject2: Mobject) -> Self:
-        tuples = zip(
-            self.get_family(),
-            mobject1.get_family(),
-            mobject2.get_family(),
+def lock_matching_data(self, mobject1: Mobject, mobject2: Mobject) -> Self:
+    # 遍历当前对象、mobject1、mobject2的家族成员三元组
+    tuples = zip(
+        self.get_family(),
+        mobject1.get_family(),
+        mobject2.get_family(),
+    )
+    for sm, sm1, sm2 in tuples:
+        # 确保三者的数据类型一致，否则跳过
+        if not sm.data.dtype == sm1.data.dtype == sm2.data.dtype:
+            continue
+        # 锁定在两个对象中相同的数据字段
+        sm.lock_data(
+            key for key in sm.data.dtype.names
+            if arrays_match(sm1.data[key], sm2.data[key])
         )
-        for sm, sm1, sm2 in tuples:
-            if not sm.data.dtype == sm1.data.dtype == sm2.data.dtype:
-                continue
-            sm.lock_data(
-                key for key in sm.data.dtype.names
-                if arrays_match(sm1.data[key], sm2.data[key])
+        # 锁定在两个对象中相同的uniform字段
+        sm.lock_uniforms(
+            key for key in self.uniforms
+            if all(listify(mobject1.uniforms.get(key, 0) == mobject2.uniforms.get(key, 0)))
+        )
+        # 标记常量数据字段（非锁定且在三个对象中均为常量）
+        sm.const_data_keys = set(
+            key for key in sm.data.dtype.names
+            if key not in sm.locked_data_keys
+            if all(
+                array_is_constant(mob.data[key])
+                for mob in (sm, sm1, sm2)
             )
-            sm.lock_uniforms(
-                key for key in self.uniforms
-                if all(listify(mobject1.uniforms.get(key, 0) == mobject2.uniforms.get(key, 0)))
-            )
-            sm.const_data_keys = set(
-                key for key in sm.data.dtype.names
-                if key not in sm.locked_data_keys
-                if all(
-                    array_is_constant(mob.data[key])
-                    for mob in (sm, sm1, sm2)
-                )
-            )
+        )
+    return self
 
-        return self
-
-    def unlock_data(self) -> Self:
-        for mob in self.get_family():
-            mob.locked_data_keys = set()
-            mob.const_data_keys = set()
-            mob.locked_uniform_keys = set()
-        return self
+def unlock_data(self) -> Self:
+    # 递归解锁家族中所有对象的数据和uniforms锁定状态
+    for mob in self.get_family():
+        mob.locked_data_keys = set()       # 清空锁定的数据键
+        mob.const_data_keys = set()        # 清空常量数据键
+        mob.locked_uniform_keys = set()    # 清空锁定的uniform键
+    return self
 
     # Operations touching shader uniforms
 
