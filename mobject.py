@@ -1967,203 +1967,260 @@ def set_shading(
         mob.set_uniform(shading=shading, recurse=False)
     return self
 
-    def get_reflectiveness(self) -> float:
-        return self.get_shading()[0]
+def get_reflectiveness(self) -> float:
+    # 获取着色参数中的反射度：shading数组第0位存储反射度
+    return self.get_shading()[0]
 
-    def get_gloss(self) -> float:
-        return self.get_shading()[1]
+def get_gloss(self) -> float:
+    # 获取着色参数中的光泽度：shading数组第1位存储光泽度
+    return self.get_shading()[1]
 
-    def get_shadow(self) -> float:
-        return self.get_shading()[2]
+def get_shadow(self) -> float:
+    # 获取着色参数中的阴影度：shading数组第2位存储阴影度
+    return self.get_shading()[2]
 
-    def set_reflectiveness(self, reflectiveness: float, recurse: bool = True) -> Self:
-        self.set_shading(reflectiveness=reflectiveness, recurse=recurse)
-        return self
+def set_reflectiveness(self, reflectiveness: float, recurse: bool = True) -> Self:
+    # 单独设置反射度：复用set_shading方法，仅传递reflectiveness参数
+    self.set_shading(reflectiveness=reflectiveness, recurse=recurse)
+    return self
 
-    def set_gloss(self, gloss: float, recurse: bool = True) -> Self:
-        self.set_shading(gloss=gloss, recurse=recurse)
-        return self
+def set_gloss(self, gloss: float, recurse: bool = True) -> Self:
+    # 单独设置光泽度：复用set_shading方法，仅传递gloss参数
+    self.set_shading(gloss=gloss, recurse=recurse)
+    return self
 
-    def set_shadow(self, shadow: float, recurse: bool = True) -> Self:
-        self.set_shading(shadow=shadow, recurse=recurse)
-        return self
+def set_shadow(self, shadow: float, recurse: bool = True) -> Self:
+    # 单独设置阴影度：复用set_shading方法，仅传递shadow参数
+    self.set_shading(shadow=shadow, recurse=recurse)
+    return self
 
-    # Background rectangle
+# 背景矩形相关方法
 
-    def add_background_rectangle(
-        self,
-        color: ManimColor | None = None,
-        opacity: float = 1.0,
-        **kwargs
-    ) -> Self:
-        from manimlib.mobject.shape_matchers import BackgroundRectangle
-        self.background_rectangle = BackgroundRectangle(
-            self, color=color,
-            fill_opacity=opacity,
-            **kwargs
+def add_background_rectangle(
+    self,
+    color: ManimColor | None = None,
+    opacity: float = 1.0,** kwargs
+) -> Self:
+    # 延迟导入BackgroundRectangle（避免循环导入）
+    from manimlib.mobject.shape_matchers import BackgroundRectangle
+    # 创建背景矩形对象：尺寸匹配当前对象，应用指定颜色和透明度
+    self.background_rectangle = BackgroundRectangle(
+        self, color=color,
+        fill_opacity=opacity,
+        **kwargs  # 传递额外参数（如边框、圆角等）
+    )
+    # 将背景矩形添加到当前对象的最底层（避免遮挡其他内容）
+    self.add_to_back(self.background_rectangle)
+    return self
+
+def add_background_rectangle_to_submobjects(self, **kwargs) -> Self:
+    # 为当前对象的所有子对象添加背景矩形
+    for submobject in self.submobjects:
+        submobject.add_background_rectangle(**kwargs)
+    return self
+
+def add_background_rectangle_to_family_members_with_points(self, **kwargs) -> Self:
+    # 为家族中所有包含点数据的成员添加背景矩形（排除空对象）
+    for mob in self.family_members_with_points():
+        mob.add_background_rectangle(**kwargs)
+    return self
+
+# 获取属性相关方法（Getters）
+
+def get_bounding_box_point(self, direction: Vect3) -> Vect3:
+    # 根据方向向量获取边界框上的对应点（如边缘、角落）
+    bb = self.get_bounding_box()  # 获取边界框（格式：[左下后, 中心, 右上前]）
+    # 计算边界框索引：方向向量符号转为0/2索引（对应边界框的两个端点）
+    indices = (np.sign(direction) + 1).astype(int)
+    # 按维度提取边界框点：每个维度取对应索引的坐标
+    return np.array([
+        bb[indices[i]][i] for i in range(3)
+    ])
+
+def get_edge_center(self, direction: Vect3) -> Vect3:
+    # 获取指定方向的边缘中心点（复用边界框点计算逻辑，部分场景下边缘中心即边界框点）
+    return self.get_bounding_box_point(direction)
+
+def get_corner(self, direction: Vect3) -> Vect3:
+    # 获取指定方向的角落点（复用边界框点计算逻辑，方向向量为对角时对应角落）
+    return self.get_bounding_box_point(direction)
+
+def get_all_corners(self):
+    # 获取边界框的所有8个角落点（3D边界框有2^3=8个角落）
+    bb = self.get_bounding_box()
+    # 生成所有维度的索引组合（0和2分别对应边界框的两个端点）
+    return np.array([
+        [bb[indices[-i + 1]][i] for i in range(3)]
+        for indices in it.product([0, 2], repeat=3)
+    ])
+
+def get_center(self) -> Vect3:
+    # 获取对象中心：边界框的第1位存储中心坐标
+    return self.get_bounding_box()[1]
+
+def get_center_of_mass(self) -> Vect3:
+    # 获取质心：所有点坐标的平均值（适用于不规则形状）
+    return self.get_all_points().mean(0)
+
+def get_boundary_point(self, direction: Vect3) -> Vect3:
+    # 获取对象在指定方向上的最外点（区别于边界框，基于实际点数据）
+    all_points = self.get_all_points()  # 获取所有点数据
+    # 计算每个点相对于中心的方向向量
+    boundary_directions = all_points - self.get_center()
+    # 归一化方向向量（消除距离影响，仅保留方向）
+    norms = np.linalg.norm(boundary_directions, axis=1)
+    boundary_directions /= np.repeat(norms, 3).reshape((len(norms), 3))
+    # 找到与目标方向最匹配的点（点积最大的点）
+    index = np.argmax(np.dot(boundary_directions, np.array(direction).T))
+    return all_points[index]
+
+def get_continuous_bounding_box_point(self, direction: Vect3) -> Vect3:
+    # 获取边界框在任意连续方向上的对应点（支持非轴对齐方向）
+    dl, center, ur = self.get_bounding_box()  # 边界框：左下后、中心、右上前
+    corner_vect = (ur - center)  # 中心到右上前的向量（半长向量）
+    # 计算方向向量在各维度上的比例，找到最大比例维度，确保点在边界框上
+    return center + direction / np.max(np.abs(np.true_divide(
+        direction, corner_vect,
+        out=np.zeros(len(direction)),  # 避免除零，分母为0时输出0
+        where=((corner_vect) != 0)     # 仅在分母非零时计算
+    )))
+
+def get_top(self) -> Vect3:
+    # 获取对象顶部点（UP方向的边缘中心）
+    return self.get_edge_center(UP)
+
+def get_bottom(self) -> Vect3:
+    # 获取对象底部点（DOWN方向的边缘中心）
+    return self.get_edge_center(DOWN)
+
+def get_right(self) -> Vect3:
+    # 获取对象右侧点（RIGHT方向的边缘中心）
+    return self.get_edge_center(RIGHT)
+
+def get_left(self) -> Vect3:
+    # 获取对象左侧点（LEFT方向的边缘中心）
+    return self.get_edge_center(LEFT)
+
+def get_zenith(self) -> Vect3:
+    # 获取对象最高点（OUT方向的边缘中心，3D场景中朝外）
+    return self.get_edge_center(OUT)
+
+def get_nadir(self) -> Vect3:
+    # 获取对象最低点（IN方向的边缘中心，3D场景中朝内）
+    return self.get_edge_center(IN)
+
+def length_over_dim(self, dim: int) -> float:
+    # 计算指定维度上的长度（边界框在该维度的跨度）
+    bb = self.get_bounding_box()
+    return abs((bb[2] - bb[0])[dim])  # bb[2]-bb[0]是维度跨度，取绝对值
+
+def get_width(self) -> float:
+    # 获取宽度（X轴维度，dim=0）
+    return self.length_over_dim(0)
+
+def get_height(self) -> float:
+    # 获取高度（Y轴维度，dim=1）
+    return self.length_over_dim(1)
+
+def get_depth(self) -> float:
+    # 获取深度（Z轴维度，dim=2）
+    return self.length_over_dim(2)
+
+def get_shape(self) -> Tuple[float]:
+    # 获取对象的三维尺寸（宽、高、深）
+    return tuple(self.length_over_dim(dim) for dim in range(3))
+
+def get_coord(self, dim: int, direction: Vect3 = ORIGIN) -> float:
+    """
+    通用化的坐标获取方法，可替代get_x、get_y、get_z
+    """
+    # 获取指定维度、指定方向上的坐标（从边界框点中提取对应维度值）
+    return self.get_bounding_box_point(direction)[dim]
+
+def get_x(self, direction=ORIGIN) -> float:
+    # 获取X轴坐标（dim=0），复用get_coord
+    return self.get_coord(0, direction)
+
+def get_y(self, direction=ORIGIN) -> float:
+    # 获取Y轴坐标（dim=1），复用get_coord
+    return self.get_coord(1, direction)
+
+def get_z(self, direction=ORIGIN) -> float:
+    # 获取Z轴坐标（dim=2），复用get_coord
+    return self.get_coord(2, direction)
+
+def get_start(self) -> Vect3:
+    # 检查对象是否有数据点，无点则抛出异常
+    self.throw_error_if_no_points()
+    # 返回第一个点的副本（避免外部修改原数据）
+    return self.get_points()[0].copy()
+
+def get_end(self) -> Vect3:
+    # 检查对象是否有数据点，无点则抛出异常
+    self.throw_error_if_no_points()
+    # 返回最后一个点的副本
+    return self.get_points()[-1].copy()
+
+def get_start_and_end(self) -> tuple[Vect3, Vect3]:
+    # 检查对象是否有数据点，无点则抛出异常
+    self.throw_error_if_no_points()
+    points = self.get_points()
+    # 返回起始点和终止点的副本
+    return (points[0].copy(), points[-1].copy())
+
+def point_from_proportion(self, alpha: float) -> Vect3:
+    # 根据比例alpha获取点（alpha∈[0,1]，0对应起点，1对应终点）
+    points = self.get_points()
+    # 计算整数索引和小数比例（如alpha=0.3，n=5 → i=1，subalpha=0.5）
+    i, subalpha = integer_interpolate(0, len(points) - 1, alpha)
+    # 在第i个点和第i+1个点之间插值
+    return interpolate(points[i], points[i + 1], subalpha)
+
+def pfp(self, alpha):
+    """point_from_proportion的缩写，快速调用"""
+    return self.point_from_proportion(alpha)
+
+def get_pieces(self, n_pieces: int) -> Group:
+    # 将对象分割为n_pieces个连续部分，返回包含这些部分的组
+    # 创建空副本作为模板（清除子对象，保留基础属性）
+    template = self.copy()
+    template.set_submobjects([])
+    # 生成分割比例（0到1之间的n_pieces+1个均匀点）
+    alphas = np.linspace(0, 1, n_pieces + 1)
+    # 逐个创建分割部分，拼接成组
+    return Group(*[
+        template.copy().pointwise_become_partial(
+            self, a1, a2  # 每个部分对应原对象的[a1,a2]比例区间
         )
-        self.add_to_back(self.background_rectangle)
-        return self
+        for a1, a2 in zip(alphas[:-1], alphas[1:])
+    ])
 
-    def add_background_rectangle_to_submobjects(self, **kwargs) -> Self:
-        for submobject in self.submobjects:
-            submobject.add_background_rectangle(**kwargs)
-        return self
+def get_z_index_reference_point(self) -> Vect3:
+    # TODO：z_index_group的默认定义位置可优化
+    # 获取Z索引参考点（用于确定渲染层级，默认使用自身或z_index_group的中心）
+    z_index_group = getattr(self, "z_index_group", self)
+    return z_index_group.get_center()
 
-    def add_background_rectangle_to_family_members_with_points(self, **kwargs) -> Self:
-        for mob in self.family_members_with_points():
-            mob.add_background_rectangle(**kwargs)
-        return self
+# 匹配其他对象属性的方法
 
-    # Getters
+def match_color(self, mobject: Mobject) -> Self:
+    # 匹配目标对象的颜色
+    return self.set_color(mobject.get_color())
 
-    def get_bounding_box_point(self, direction: Vect3) -> Vect3:
-        bb = self.get_bounding_box()
-        indices = (np.sign(direction) + 1).astype(int)
-        return np.array([
-            bb[indices[i]][i]
-            for i in range(3)
-        ])
+def match_style(self, mobject: Mobject) -> Self:
+    # 匹配目标对象的整体样式（颜色、透明度、着色参数）
+    self.set_color(mobject.get_color())          # 匹配颜色
+    self.set_opacity(mobject.get_opacity())      # 匹配透明度
+    self.set_shading(*mobject.get_shading())     # 匹配着色参数（反射度、光泽度、阴影度）
+    return self
 
-    def get_edge_center(self, direction: Vect3) -> Vect3:
-        return self.get_bounding_box_point(direction)
-
-    def get_corner(self, direction: Vect3) -> Vect3:
-        return self.get_bounding_box_point(direction)
-
-    def get_all_corners(self):
-        bb = self.get_bounding_box()
-        return np.array([
-            [bb[indices[-i + 1]][i] for i in range(3)]
-            for indices in it.product([0, 2], repeat=3)
-        ])
-
-    def get_center(self) -> Vect3:
-        return self.get_bounding_box()[1]
-
-    def get_center_of_mass(self) -> Vect3:
-        return self.get_all_points().mean(0)
-
-    def get_boundary_point(self, direction: Vect3) -> Vect3:
-        all_points = self.get_all_points()
-        boundary_directions = all_points - self.get_center()
-        norms = np.linalg.norm(boundary_directions, axis=1)
-        boundary_directions /= np.repeat(norms, 3).reshape((len(norms), 3))
-        index = np.argmax(np.dot(boundary_directions, np.array(direction).T))
-        return all_points[index]
-
-    def get_continuous_bounding_box_point(self, direction: Vect3) -> Vect3:
-        dl, center, ur = self.get_bounding_box()
-        corner_vect = (ur - center)
-        return center + direction / np.max(np.abs(np.true_divide(
-            direction, corner_vect,
-            out=np.zeros(len(direction)),
-            where=((corner_vect) != 0)
-        )))
-
-    def get_top(self) -> Vect3:
-        return self.get_edge_center(UP)
-
-    def get_bottom(self) -> Vect3:
-        return self.get_edge_center(DOWN)
-
-    def get_right(self) -> Vect3:
-        return self.get_edge_center(RIGHT)
-
-    def get_left(self) -> Vect3:
-        return self.get_edge_center(LEFT)
-
-    def get_zenith(self) -> Vect3:
-        return self.get_edge_center(OUT)
-
-    def get_nadir(self) -> Vect3:
-        return self.get_edge_center(IN)
-
-    def length_over_dim(self, dim: int) -> float:
-        bb = self.get_bounding_box()
-        return abs((bb[2] - bb[0])[dim])
-
-    def get_width(self) -> float:
-        return self.length_over_dim(0)
-
-    def get_height(self) -> float:
-        return self.length_over_dim(1)
-
-    def get_depth(self) -> float:
-        return self.length_over_dim(2)
-
-    def get_shape(self) -> Tuple[float]:
-        return tuple(self.length_over_dim(dim) for dim in range(3))
-
-    def get_coord(self, dim: int, direction: Vect3 = ORIGIN) -> float:
-        """
-        Meant to generalize get_x, get_y, get_z
-        """
-        return self.get_bounding_box_point(direction)[dim]
-
-    def get_x(self, direction=ORIGIN) -> float:
-        return self.get_coord(0, direction)
-
-    def get_y(self, direction=ORIGIN) -> float:
-        return self.get_coord(1, direction)
-
-    def get_z(self, direction=ORIGIN) -> float:
-        return self.get_coord(2, direction)
-
-    def get_start(self) -> Vect3:
-        self.throw_error_if_no_points()
-        return self.get_points()[0].copy()
-
-    def get_end(self) -> Vect3:
-        self.throw_error_if_no_points()
-        return self.get_points()[-1].copy()
-
-    def get_start_and_end(self) -> tuple[Vect3, Vect3]:
-        self.throw_error_if_no_points()
-        points = self.get_points()
-        return (points[0].copy(), points[-1].copy())
-
-    def point_from_proportion(self, alpha: float) -> Vect3:
-        points = self.get_points()
-        i, subalpha = integer_interpolate(0, len(points) - 1, alpha)
-        return interpolate(points[i], points[i + 1], subalpha)
-
-    def pfp(self, alpha):
-        """Abbreviation for point_from_proportion"""
-        return self.point_from_proportion(alpha)
-
-    def get_pieces(self, n_pieces: int) -> Group:
-        template = self.copy()
-        template.set_submobjects([])
-        alphas = np.linspace(0, 1, n_pieces + 1)
-        return Group(*[
-            template.copy().pointwise_become_partial(
-                self, a1, a2
-            )
-            for a1, a2 in zip(alphas[:-1], alphas[1:])
-        ])
-
-    def get_z_index_reference_point(self) -> Vect3:
-        # TODO, better place to define default z_index_group?
-        z_index_group = getattr(self, "z_index_group", self)
-        return z_index_group.get_center()
-
-    # Match other mobject properties
-
-    def match_color(self, mobject: Mobject) -> Self:
-        return self.set_color(mobject.get_color())
-
-    def match_style(self, mobject: Mobject) -> Self:
-        self.set_color(mobject.get_color())
-        self.set_opacity(mobject.get_opacity())
-        self.set_shading(*mobject.get_shading())
-        return self
-
-    def match_dim_size(self, mobject: Mobject, dim: int, **kwargs) -> Self:
-        return self.rescale_to_fit(
-            mobject.length_over_dim(dim), dim,
-            **kwargs
-        )
+def match_dim_size(self, mobject: Mobject, dim: int,** kwargs) -> Self:
+    # 匹配目标对象在指定维度上的尺寸
+    return self.rescale_to_fit(
+        mobject.length_over_dim(dim),  # 目标对象指定维度的长度
+        dim,                           # 待匹配的维度
+        **kwargs                       # 传递额外参数（如缩放中心点）
+    )
 
     def match_width(self, mobject: Mobject, **kwargs) -> Self:
         return self.match_dim_size(mobject, 0, **kwargs)
