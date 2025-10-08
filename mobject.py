@@ -1531,107 +1531,140 @@ def next_to(
     self.shift((target_point - point_to_align + buff * direction) * coor_mask)
     return self
 
-    def shift_onto_screen(self, **kwargs) -> Self:
-        space_lengths = [FRAME_X_RADIUS, FRAME_Y_RADIUS]
-        for vect in UP, DOWN, LEFT, RIGHT:
-            dim = np.argmax(np.abs(vect))
-            buff = kwargs.get("buff", DEFAULT_MOBJECT_TO_EDGE_BUFF)
-            max_val = space_lengths[dim] - buff
-            edge_center = self.get_edge_center(vect)
-            if np.dot(edge_center, vect) > max_val:
-                self.to_edge(vect, **kwargs)
+def shift_onto_screen(self, **kwargs) -> Self:
+    # 定义屏幕在X、Y轴的半长（用于计算屏幕边界）
+    space_lengths = [FRAME_X_RADIUS, FRAME_Y_RADIUS]
+    # 遍历四个方向（上、下、左、右），检查对象是否超出屏幕边界
+    for vect in UP, DOWN, LEFT, RIGHT:
+        # 确定当前方向对应的维度（X轴或Y轴）
+        dim = np.argmax(np.abs(vect))
+        # 从参数中获取边界间距，默认使用全局默认值
+        buff = kwargs.get("buff", DEFAULT_MOBJECT_TO_EDGE_BUFF)
+        # 计算当前方向的最大允许坐标（屏幕边界 - 间距）
+        max_val = space_lengths[dim] - buff
+        # 获取对象在当前方向上的边缘中心点
+        edge_center = self.get_edge_center(vect)
+        # 如果边缘中心点超出最大允许坐标，将对象对齐到该方向的屏幕边缘
+        if np.dot(edge_center, vect) > max_val:
+            self.to_edge(vect, **kwargs)
+    return self
+
+def is_off_screen(self) -> bool:
+    # 检查对象左边缘是否超出屏幕右边界
+    if self.get_left()[0] > FRAME_X_RADIUS:
+        return True
+    # 检查对象右边缘是否超出屏幕左边界
+    if self.get_right()[0] < -FRAME_X_RADIUS:
+        return True
+    # 检查对象下边缘是否超出屏幕上边界
+    if self.get_bottom()[1] > FRAME_Y_RADIUS:
+        return True
+    # 检查对象上边缘是否超出屏幕下边界
+    if self.get_top()[1] < -FRAME_Y_RADIUS:
+        return True
+    # 所有边界均未超出，返回False
+    return False
+
+def stretch_about_point(self, factor: float, dim: int, point: Vect3) -> Self:
+    # 围绕指定点在指定维度上拉伸对象（复用stretch方法，指定about_point参数）
+    return self.stretch(factor, dim, about_point=point)
+
+def stretch_in_place(self, factor: float, dim: int) -> Self:
+    # 原地拉伸对象（当前已冗余，直接调用stretch即可，默认围绕对象中心拉伸）
+    return self.stretch(factor, dim)
+
+def rescale_to_fit(self, length: float, dim: int, stretch: bool = False, **kwargs) -> Self:
+    # 获取对象在指定维度上的当前长度
+    old_length = self.length_over_dim(dim)
+    # 若当前长度为0，无需缩放，直接返回
+    if old_length == 0:
         return self
+    # 计算缩放因子：目标长度 / 当前长度
+    scale_factor = length / old_length
+    # 若指定拉伸模式，在指定维度上单独拉伸
+    if stretch:
+        self.stretch(scale_factor, dim,** kwargs)
+    # 否则进行整体缩放（所有维度按同一比例缩放）
+    else:
+        self.scale(scale_factor, **kwargs)
+    return self
 
-    def is_off_screen(self) -> bool:
-        if self.get_left()[0] > FRAME_X_RADIUS:
-            return True
-        if self.get_right()[0] < -FRAME_X_RADIUS:
-            return True
-        if self.get_bottom()[1] > FRAME_Y_RADIUS:
-            return True
-        if self.get_top()[1] < -FRAME_Y_RADIUS:
-            return True
-        return False
+def stretch_to_fit_width(self, width: float, **kwargs) -> Self:
+    # 拉伸对象以适配指定宽度（X轴，维度0，强制拉伸模式）
+    return self.rescale_to_fit(width, 0, stretch=True, **kwargs)
 
-    def stretch_about_point(self, factor: float, dim: int, point: Vect3) -> Self:
-        return self.stretch(factor, dim, about_point=point)
+def stretch_to_fit_height(self, height: float, **kwargs) -> Self:
+    # 拉伸对象以适配指定高度（Y轴，维度1，强制拉伸模式）
+    return self.rescale_to_fit(height, 1, stretch=True, **kwargs)
 
-    def stretch_in_place(self, factor: float, dim: int) -> Self:
-        # Now redundant with stretch
-        return self.stretch(factor, dim)
+def stretch_to_fit_depth(self, depth: float, **kwargs) -> Self:
+    # 拉伸对象以适配指定深度（Z轴，维度2，强制拉伸模式）
+    return self.rescale_to_fit(depth, 2, stretch=True, **kwargs)
 
-    def rescale_to_fit(self, length: float, dim: int, stretch: bool = False, **kwargs) -> Self:
-        old_length = self.length_over_dim(dim)
-        if old_length == 0:
-            return self
-        if stretch:
-            self.stretch(length / old_length, dim, **kwargs)
-        else:
-            self.scale(length / old_length, **kwargs)
-        return self
+def set_width(self, width: float, stretch: bool = False, **kwargs) -> Self:
+    # 设置对象宽度（X轴，维度0），可选择拉伸或整体缩放
+    return self.rescale_to_fit(width, 0, stretch=stretch, **kwargs)
 
-    def stretch_to_fit_width(self, width: float, **kwargs) -> Self:
-        return self.rescale_to_fit(width, 0, stretch=True, **kwargs)
+def set_height(self, height: float, stretch: bool = False, **kwargs) -> Self:
+    # 设置对象高度（Y轴，维度1），可选择拉伸或整体缩放
+    return self.rescale_to_fit(height, 1, stretch=stretch, **kwargs)
 
-    def stretch_to_fit_height(self, height: float, **kwargs) -> Self:
-        return self.rescale_to_fit(height, 1, stretch=True, **kwargs)
+def set_depth(self, depth: float, stretch: bool = False, **kwargs) -> Self:
+    # 设置对象深度（Z轴，维度2），可选择拉伸或整体缩放
+    return self.rescale_to_fit(depth, 2, stretch=stretch, **kwargs)
 
-    def stretch_to_fit_depth(self, depth: float, **kwargs) -> Self:
-        return self.rescale_to_fit(depth, 2, stretch=True, **kwargs)
+def set_max_width(self, max_width: float, **kwargs) -> Self:
+    # 仅当对象当前宽度超过最大允许宽度时，将宽度设置为最大值
+    if self.get_width() > max_width:
+        self.set_width(max_width,** kwargs)
+    return self
 
-    def set_width(self, width: float, stretch: bool = False, **kwargs) -> Self:
-        return self.rescale_to_fit(width, 0, stretch=stretch, **kwargs)
+def set_max_height(self, max_height: float, **kwargs) -> Self:
+    # 仅当对象当前高度超过最大允许高度时，将高度设置为最大值
+    if self.get_height() > max_height:
+        self.set_height(max_height, **kwargs)
+    return self
 
-    def set_height(self, height: float, stretch: bool = False, **kwargs) -> Self:
-        return self.rescale_to_fit(height, 1, stretch=stretch, **kwargs)
+def set_max_depth(self, max_depth: float, **kwargs) -> Self:
+    # 仅当对象当前深度超过最大允许深度时，将深度设置为最大值
+    if self.get_depth() > max_depth:
+        self.set_depth(max_depth,** kwargs)
+    return self
 
-    def set_depth(self, depth: float, stretch: bool = False, **kwargs) -> Self:
-        return self.rescale_to_fit(depth, 2, stretch=stretch, **kwargs)
+def set_min_width(self, min_width: float, **kwargs) -> Self:
+    # 仅当对象当前宽度小于最小允许宽度时，将宽度设置为最小值
+    if self.get_width() < min_width:
+        self.set_width(min_width, **kwargs)
+    return self
 
-    def set_max_width(self, max_width: float, **kwargs) -> Self:
-        if self.get_width() > max_width:
-            self.set_width(max_width, **kwargs)
-        return self
+def set_min_height(self, min_height: float, **kwargs) -> Self:
+    # 仅当对象当前高度小于最小允许高度时，将高度设置为最小值
+    if self.get_height() < min_height:
+        self.set_height(min_height,** kwargs)
+    return self
 
-    def set_max_height(self, max_height: float, **kwargs) -> Self:
-        if self.get_height() > max_height:
-            self.set_height(max_height, **kwargs)
-        return self
+def set_min_depth(self, min_depth: float, **kwargs) -> Self:
+    # 仅当对象当前深度小于最小允许深度时，将深度设置为最小值
+    if self.get_depth() < min_depth:
+        self.set_depth(min_depth, **kwargs)
+    return self
 
-    def set_max_depth(self, max_depth: float, **kwargs) -> Self:
-        if self.get_depth() > max_depth:
-            self.set_depth(max_depth, **kwargs)
-        return self
-
-    def set_min_width(self, min_width: float, **kwargs) -> Self:
-        if self.get_width() < min_width:
-            self.set_width(min_width, **kwargs)
-        return self
-
-    def set_min_height(self, min_height: float, **kwargs) -> Self:
-        if self.get_height() < min_height:
-            self.set_height(min_height, **kwargs)
-        return self
-
-    def set_min_depth(self, min_depth: float, **kwargs) -> Self:
-        if self.get_depth() < min_depth:
-            self.set_depth(min_depth, **kwargs)
-        return self
-
-    def set_shape(
-        self,
-        width: Optional[float] = None,
-        height: Optional[float] = None,
-        depth: Optional[float] = None,
-        **kwargs
-    ) -> Self:
-        if width is not None:
-            self.set_width(width, stretch=True, **kwargs)
-        if height is not None:
-            self.set_height(height, stretch=True, **kwargs)
-        if depth is not None:
-            self.set_depth(depth, stretch=True, **kwargs)
-        return self
+def set_shape(
+    self,
+    width: Optional[float] = None,
+    height: Optional[float] = None,
+    depth: Optional[float] = None,** kwargs
+) -> Self:
+    # 若指定了宽度，拉伸对象以适配该宽度
+    if width is not None:
+        self.set_width(width, stretch=True, **kwargs)
+    # 若指定了高度，拉伸对象以适配该高度
+    if height is not None:
+        self.set_height(height, stretch=True, **kwargs)
+    # 若指定了深度，拉伸对象以适配该深度
+    if depth is not None:
+        self.set_depth(depth, stretch=True, **kwargs)
+    return self
 
     def set_coord(self, value: float, dim: int, direction: Vect3 = ORIGIN) -> Self:
         curr = self.get_coord(dim, direction)
