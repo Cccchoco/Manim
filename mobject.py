@@ -2222,122 +2222,151 @@ def match_dim_size(self, mobject: Mobject, dim: int,** kwargs) -> Self:
         **kwargs                       # 传递额外参数（如缩放中心点）
     )
 
-    def match_width(self, mobject: Mobject, **kwargs) -> Self:
-        return self.match_dim_size(mobject, 0, **kwargs)
+def match_width(self, mobject: Mobject, **kwargs) -> Self:
+    # 匹配目标对象的宽度（X轴维度，dim=0），复用match_dim_size方法
+    # **kwargs传递额外参数（如缩放中心点、是否拉伸等）
+    return self.match_dim_size(mobject, 0,** kwargs)
 
-    def match_height(self, mobject: Mobject, **kwargs) -> Self:
-        return self.match_dim_size(mobject, 1, **kwargs)
+def match_height(self, mobject: Mobject, **kwargs) -> Self:
+    # 匹配目标对象的高度（Y轴维度，dim=1），复用match_dim_size方法
+    return self.match_dim_size(mobject, 1, **kwargs)
 
-    def match_depth(self, mobject: Mobject, **kwargs) -> Self:
-        return self.match_dim_size(mobject, 2, **kwargs)
+def match_depth(self, mobject: Mobject, **kwargs) -> Self:
+    # 匹配目标对象的深度（Z轴维度，dim=2），复用match_dim_size方法
+    return self.match_dim_size(mobject, 2,** kwargs)
 
-    def match_coord(
-        self,
-        mobject_or_point: Mobject | Vect3,
-        dim: int,
-        direction: Vect3 = ORIGIN
-    ) -> Self:
-        if isinstance(mobject_or_point, Mobject):
-            coord = mobject_or_point.get_coord(dim, direction)
-        else:
-            coord = mobject_or_point[dim]
-        return self.set_coord(coord, dim=dim, direction=direction)
+def match_coord(
+    self,
+    mobject_or_point: Mobject | Vect3,
+    dim: int,
+    direction: Vect3 = ORIGIN
+) -> Self:
+    # 处理目标为Mobject的情况：获取目标对象在指定维度和方向上的坐标
+    if isinstance(mobject_or_point, Mobject):
+        coord = mobject_or_point.get_coord(dim, direction)
+    # 处理目标为点的情况：直接提取点在指定维度上的坐标值
+    else:
+        coord = mobject_or_point[dim]
+    # 将当前对象在指定维度和方向上的坐标设置为目标坐标
+    return self.set_coord(coord, dim=dim, direction=direction)
 
-    def match_x(
-        self,
-        mobject_or_point: Mobject | Vect3,
-        direction: Vect3 = ORIGIN
-    ) -> Self:
-        return self.match_coord(mobject_or_point, 0, direction)
+def match_x(
+    self,
+    mobject_or_point: Mobject | Vect3,
+    direction: Vect3 = ORIGIN
+) -> Self:
+    # 匹配目标对象/X轴坐标（dim=0），复用match_coord方法
+    return self.match_coord(mobject_or_point, 0, direction)
 
-    def match_y(
-        self,
-        mobject_or_point: Mobject | Vect3,
-        direction: Vect3 = ORIGIN
-    ) -> Self:
-        return self.match_coord(mobject_or_point, 1, direction)
+def match_y(
+    self,
+    mobject_or_point: Mobject | Vect3,
+    direction: Vect3 = ORIGIN
+) -> Self:
+    # 匹配目标对象/Y轴坐标（dim=1），复用match_coord方法
+    return self.match_coord(mobject_or_point, 1, direction)
 
-    def match_z(
-        self,
-        mobject_or_point: Mobject | Vect3,
-        direction: Vect3 = ORIGIN
-    ) -> Self:
-        return self.match_coord(mobject_or_point, 2, direction)
+def match_z(
+    self,
+    mobject_or_point: Mobject | Vect3,
+    direction: Vect3 = ORIGIN
+) -> Self:
+    # 匹配目标对象/Z轴坐标（dim=2），复用match_coord方法
+    return self.match_coord(mobject_or_point, 2, direction)
 
-    def align_to(
-        self,
-        mobject_or_point: Mobject | Vect3,
-        direction: Vect3 = ORIGIN
-    ) -> Self:
-        """
-        Examples:
-        mob1.align_to(mob2, UP) moves mob1 vertically so that its
-        top edge lines ups with mob2's top edge.
+def align_to(
+    self,
+    mobject_or_point: Mobject | Vect3,
+    direction: Vect3 = ORIGIN
+) -> Self:
+    """
+    示例：
+    1. mob1.align_to(mob2, UP) → 垂直移动mob1，使其顶部边缘与mob2的顶部边缘对齐
+    2. mob1.align_to(mob2, RIGHT) → 水平移动mob1，使其中心与mob2的中心在垂直方向对齐
+    """
+    # 处理目标为Mobject的情况：获取目标对象在指定方向上的边界框点
+    if isinstance(mobject_or_point, Mobject):
+        point = mobject_or_point.get_bounding_box_point(direction)
+    # 处理目标为点的情况：直接使用该点作为对齐目标点
+    else:
+        point = mobject_or_point
 
-        mob1.align_to(mob2, alignment_vect = RIGHT) moves mob1
-        horizontally so that it's center is directly above/below
-        the center of mob2
-        """
-        if isinstance(mobject_or_point, Mobject):
-            point = mobject_or_point.get_bounding_box_point(direction)
-        else:
-            point = mobject_or_point
+    # 遍历所有维度，仅对方向向量非零的维度执行对齐（即仅在目标方向上调整）
+    for dim in range(self.dim):
+        if direction[dim] != 0:
+            self.set_coord(point[dim], dim, direction)
+    return self
 
-        for dim in range(self.dim):
-            if direction[dim] != 0:
-                self.set_coord(point[dim], dim, direction)
-        return self
+def get_group_class(self):
+    # 返回当前对象对应的组类（默认是Group，用于创建包含自身的组）
+    return Group
 
-    def get_group_class(self):
-        return Group
+# 对齐相关方法（Alignment）
 
-    # Alignment
+def is_aligned_with(self, mobject: Mobject) -> bool:
+    # 检查当前对象是否与目标对象对齐（需满足数据长度和子对象数量一致）
+    # 1. 检查数据长度是否相同（点数据数量一致）
+    if len(self.data) != len(mobject.data):
+        return False
+    # 2. 检查子对象数量是否相同
+    if len(self.submobjects) != len(mobject.submobjects):
+        return False
+    # 3. 递归检查所有子对象是否对齐
+    return all(
+        sm1.is_aligned_with(sm2)
+        for sm1, sm2 in zip(self.submobjects, mobject.submobjects)
+    )
 
-    def is_aligned_with(self, mobject: Mobject) -> bool:
-        if len(self.data) != len(mobject.data):
-            return False
-        if len(self.submobjects) != len(mobject.submobjects):
-            return False
-        return all(
-            sm1.is_aligned_with(sm2)
-            for sm1, sm2 in zip(self.submobjects, mobject.submobjects)
-        )
+def align_data_and_family(self, mobject: Mobject) -> Self:
+    # 同时对齐家族结构和数据（先对齐家族，再对齐数据）
+    self.align_family(mobject)  # 对齐子对象数量和层级
+    self.align_data(mobject)    # 对齐点数据长度
+    return self
 
-    def align_data_and_family(self, mobject: Mobject) -> Self:
-        self.align_family(mobject)
-        self.align_data(mobject)
-        return self
+def align_data(self, mobject: Mobject) -> Self:
+    # 对齐当前对象与目标对象的家族成员数据（点数量匹配）
+    # 遍历双方家族成员，逐个对齐点数据
+    for mob1, mob2 in zip(self.get_family(), mobject.get_family()):
+        mob1.align_points(mob2)
+    return self
 
-    def align_data(self, mobject: Mobject) -> Self:
-        for mob1, mob2 in zip(self.get_family(), mobject.get_family()):
-            mob1.align_points(mob2)
-        return self
+def align_points(self, mobject: Mobject) -> Self:
+    # 对齐两个对象的点数据长度（统一调整为两者中的最大长度）
+    # 计算双方点数量的最大值
+    max_len = max(self.get_num_points(), mobject.get_num_points())
+    # 对两个对象分别调整点数量，使用保序插值确保形状不变
+    for mob in (self, mobject):
+        mob.resize_points(max_len, resize_func=resize_preserving_order)
+    return self
 
-    def align_points(self, mobject: Mobject) -> Self:
-        max_len = max(self.get_num_points(), mobject.get_num_points())
-        for mob in (self, mobject):
-            mob.resize_points(max_len, resize_func=resize_preserving_order)
-        return self
+def align_family(self, mobject: Mobject) -> Self:
+    # 对齐当前对象与目标对象的家族结构（子对象数量匹配）
+    mob1 = self       # 当前对象
+    mob2 = mobject    # 目标对象
+    n1 = len(mob1)    # 当前对象的子对象数量
+    n2 = len(mob2)    # 目标对象的子对象数量
 
-    def align_family(self, mobject: Mobject) -> Self:
-        mob1 = self
-        mob2 = mobject
-        n1 = len(mob1)
-        n2 = len(mob2)
-        if n1 != n2:
-            mob1.add_n_more_submobjects(max(0, n2 - n1))
-            mob2.add_n_more_submobjects(max(0, n1 - n2))
-        # Recurse
-        for sm1, sm2 in zip(mob1.submobjects, mob2.submobjects):
-            sm1.align_family(sm2)
-        return self
+    # 若子对象数量不同，为较少的一方添加空的子对象以补全数量
+    if n1 != n2:
+        mob1.add_n_more_submobjects(max(0, n2 - n1))  # 给mob1补全子对象
+        mob2.add_n_more_submobjects(max(0, n1 - n2))  # 给mob2补全子对象
 
-    def push_self_into_submobjects(self) -> Self:
-        copy = self.copy()
-        copy.set_submobjects([])
-        self.resize_points(0)
-        self.add(copy)
-        return self
+    # 递归对齐双方的子对象（确保层级结构一致）
+    for sm1, sm2 in zip(mob1.submobjects, mob2.submobjects):
+        sm1.align_family(sm2)
+    return self
+
+def push_self_into_submobjects(self) -> Self:
+    # 将当前对象自身转为子对象（原对象变为空容器，包含自身副本）
+    # 1. 创建当前对象的副本（保留原属性和数据）
+    copy = self.copy()
+    # 2. 清空副本的子对象（避免循环引用）
+    copy.set_submobjects([])
+    # 3. 清空当前对象的点数据（变为空容器）
+    self.resize_points(0)
+    # 4. 将副本添加为当前对象的子对象
+    self.add(copy)
+    return self
 
     def add_n_more_submobjects(self, n: int) -> Self:
         if n == 0:
