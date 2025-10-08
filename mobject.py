@@ -143,8 +143,8 @@ class Mobject(object):
             self.fix_in_frame()
 
     def __str__(self):
-    """返回对象的字符串表示形式，默认为类名"""
-    return self.__class__.__name__
+    #返回对象的字符串表示形式，默认为类名
+        return self.__class__.__name__
 
 def __add__(self, other: Mobject) -> Mobject:
     """
