@@ -1,43 +1,44 @@
 from __future__ import annotations
 
 from collections import OrderedDict
-import platform
-import random
-import time
-from functools import wraps
-from contextlib import contextmanager
-from contextlib import ExitStack
+import platform  # 用于获取操作系统信息
+import random  # 用于随机数生成
+import time  # 用于时间相关操作
+from functools import wraps  # 用于装饰器
+from contextlib import contextmanager  # 用于上下文管理器
+from contextlib import ExitStack  # 用于管理多个上下文
 
-import numpy as np
-from tqdm.auto import tqdm as ProgressDisplay
-from pyglet.window import key as PygletWindowKeys
+import numpy as np  # 用于数值计算
+from tqdm.auto import tqdm as ProgressDisplay  # 用于显示进度条
+from pyglet.window import key as PygletWindowKeys  # 导入pyglet的按键常量
 
-from manimlib.animation.animation import prepare_animation
-from manimlib.camera.camera import Camera
-from manimlib.camera.camera_frame import CameraFrame
-from manimlib.config import manim_config
-from manimlib.event_handler import EVENT_DISPATCHER
-from manimlib.event_handler.event_type import EventType
-from manimlib.logger import log
-from manimlib.mobject.mobject import _AnimationBuilder
-from manimlib.mobject.mobject import Group
-from manimlib.mobject.mobject import Mobject
-from manimlib.mobject.mobject import Point
-from manimlib.mobject.types.vectorized_mobject import VGroup
-from manimlib.mobject.types.vectorized_mobject import VMobject
-from manimlib.scene.scene_embed import InteractiveSceneEmbed
-from manimlib.scene.scene_embed import CheckpointManager
-from manimlib.scene.scene_file_writer import SceneFileWriter
-from manimlib.utils.dict_ops import merge_dicts_recursively
-from manimlib.utils.family_ops import extract_mobject_family_members
-from manimlib.utils.family_ops import recursive_mobject_remove
-from manimlib.utils.iterables import batch_by_property
-from manimlib.utils.sounds import play_sound
-from manimlib.utils.color import color_to_rgba
-from manimlib.window import Window
+from manimlib.animation.animation import prepare_animation  # 用于准备动画
+from manimlib.camera.camera import Camera  # 相机类
+from manimlib.camera.camera_frame import CameraFrame  # 相机帧类
+from manimlib.config import manim_config  # manim配置
+from manimlib.event_handler import EVENT_DISPATCHER  # 事件分发器
+from manimlib.event_handler.event_type import EventType  # 事件类型
+from manimlib.logger import log  # 日志工具
+from manimlib.mobject.mobject import _AnimationBuilder  # 动画构建器
+from manimlib.mobject.mobject import Group  # 图形组类
+from manimlib.mobject.mobject import Mobject  # 基础图形类
+from manimlib.mobject.mobject import Point  # 点图形类
+from manimlib.mobject.types.vectorized_mobject import VGroup  # 向量图形组类
+from manimlib.mobject.types.vectorized_mobject import VMobject  # 向量图形类
+from manimlib.scene.scene_embed import InteractiveSceneEmbed  # 交互式场景嵌入
+from manimlib.scene.scene_embed import CheckpointManager  # 检查点管理器
+from manimlib.scene.scene_file_writer import SceneFileWriter  # 场景文件写入器
+from manimlib.utils.dict_ops import merge_dicts_recursively  # 递归合并字典
+from manimlib.utils.family_ops import extract_mobject_family_members  # 提取图形家族成员
+from manimlib.utils.family_ops import recursive_mobject_remove  # 递归移除图形
+from manimlib.utils.iterables import batch_by_property  # 按属性批量处理
+from manimlib.utils.sounds import play_sound  # 播放声音
+from manimlib.utils.color import color_to_rgba  # 颜色转换为RGBA
+from manimlib.window import Window  # 窗口类
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING  # 用于类型提示的条件导入
 
+# 类型检查时导入所需的类，避免循环导入问题
 if TYPE_CHECKING:
     from typing import Callable, Iterable, TypeVar, Optional
     from manimlib.typing import Vect3
@@ -50,96 +51,103 @@ if TYPE_CHECKING:
 
 
 class Scene(object):
-    random_seed: int = 0
-    pan_sensitivity: float = 0.5
-    scroll_sensitivity: float = 20
-    drag_to_pan: bool = True
-    max_num_saved_states: int = 50
-    default_camera_config: dict = dict()
-    default_file_writer_config: dict = dict()
-    samples = 0
-    # Euler angles, in degrees
+    """场景类，是所有动画场景的基类，管理图形、动画和交互"""
+    
+    random_seed: int = 0  # 随机数种子，确保场景的可重复性
+    pan_sensitivity: float = 0.5  # 平移灵敏度
+    scroll_sensitivity: float = 20  # 滚动灵敏度
+    drag_to_pan: bool = True  # 是否通过拖拽来平移视图
+    max_num_saved_states: int = 50  # 最大保存状态数
+    default_camera_config: dict = dict()  # 默认相机配置
+    default_file_writer_config: dict = dict()  # 默认文件写入器配置
+    samples = 0  # 采样数（用于抗锯齿等）
+    # 欧拉角，以度为单位（用于相机初始方向）
     default_frame_orientation = (0, 0)
 
     def __init__(
         self,
-        window: Optional[Window] = None,
-        camera_config: dict = dict(),
-        file_writer_config: dict = dict(),
-        skip_animations: bool = False,
-        always_update_mobjects: bool = False,
-        start_at_animation_number: int | None = None,
-        end_at_animation_number: int | None = None,
-        show_animation_progress: bool = False,
-        leave_progress_bars: bool = False,
-        preview_while_skipping: bool = True,
-        presenter_mode: bool = False,
-        default_wait_time: float = 1.0,
+        window: Optional[Window] = None,  # 窗口对象
+        camera_config: dict = dict(),  # 相机配置
+        file_writer_config: dict = dict(),  # 文件写入器配置
+        skip_animations: bool = False,  # 是否跳过动画
+        always_update_mobjects: bool = False,  # 是否总是更新图形
+        start_at_animation_number: int | None = None,  # 从哪个动画编号开始
+        end_at_animation_number: int | None = None,  # 到哪个动画编号结束
+        show_animation_progress: bool = False,  # 是否显示动画进度
+        leave_progress_bars: bool = False,  # 是否保留进度条
+        preview_while_skipping: bool = True,  # 跳过动画时是否预览
+        presenter_mode: bool = False,  # 是否演示者模式
+        default_wait_time: float = 1.0,  # 默认等待时间
     ):
-        self.skip_animations = skip_animations
-        self.always_update_mobjects = always_update_mobjects
-        self.start_at_animation_number = start_at_animation_number
-        self.end_at_animation_number = end_at_animation_number
-        self.show_animation_progress = show_animation_progress
-        self.leave_progress_bars = leave_progress_bars
-        self.preview_while_skipping = preview_while_skipping
-        self.presenter_mode = presenter_mode
-        self.default_wait_time = default_wait_time
+        self.skip_animations = skip_animations  # 是否跳过动画
+        self.always_update_mobjects = always_update_mobjects  # 是否总是更新图形
+        self.start_at_animation_number = start_at_animation_number  # 开始动画编号
+        self.end_at_animation_number = end_at_animation_number  # 结束动画编号
+        self.show_animation_progress = show_animation_progress  # 显示动画进度
+        self.leave_progress_bars = leave_progress_bars  # 保留进度条
+        self.preview_while_skipping = preview_while_skipping  # 跳过动画时预览
+        self.presenter_mode = presenter_mode  # 演示者模式
+        self.default_wait_time = default_wait_time  # 默认等待时间
 
+        # 合并相机配置：全局默认 -> 类默认 -> 实例参数
         self.camera_config = merge_dicts_recursively(
-            manim_config.camera,         # Global default
-            self.default_camera_config,  # Updated configuration that subclasses may specify
-            camera_config,               # Updated configuration from instantiation
+            manim_config.camera,         # 全局默认配置
+            self.default_camera_config,  # 类定义的默认配置
+            camera_config,               # 实例化时传入的配置
         )
+        # 合并文件写入器配置：全局默认 -> 类默认 -> 实例参数
         self.file_writer_config = merge_dicts_recursively(
             manim_config.file_writer,
             self.default_file_writer_config,
             file_writer_config,
         )
 
-        self.window = window
+        self.window = window  # 窗口对象
         if self.window:
-            self.window.init_for_scene(self)
-            # Make sure camera and Pyglet window sync
+            self.window.init_for_scene(self)  # 为场景初始化窗口
+            # 确保相机和Pyglet窗口同步，设置帧率为30
             self.camera_config["fps"] = 30
 
-        # Core state of the scene
+        # 场景的核心状态
         self.camera: Camera = Camera(
             window=self.window,
             samples=self.samples,
-            **self.camera_config
+            **self.camera_config  # 应用相机配置
         )
-        self.frame: CameraFrame = self.camera.frame
-        self.frame.reorient(*self.default_frame_orientation)
-        self.frame.make_orientation_default()
+        self.frame: CameraFrame = self.camera.frame  # 相机帧（决定视图）
+        self.frame.reorient(*self.default_frame_orientation)  # 应用默认方向
+        self.frame.make_orientation_default()  # 将当前方向设为默认
 
-        self.file_writer = SceneFileWriter(self, **self.file_writer_config)
+        # 初始化文件写入器
+        self.file_writer = SceneFileWriter(self,** self.file_writer_config)
+        # 场景中的图形列表，初始包含相机帧
         self.mobjects: list[Mobject] = [self.camera.frame]
-        self.render_groups: list[Mobject] = []
-        self.id_to_mobject_map: dict[int, Mobject] = dict()
-        self.num_plays: int = 0
-        self.time: float = 0
-        self.skip_time: float = 0
-        self.original_skipping_status: bool = self.skip_animations
-        self.undo_stack = []
-        self.redo_stack = []
+        self.render_groups: list[Mobject] = []  # 渲染组列表
+        self.id_to_mobject_map: dict[int, Mobject] = dict()  # 图形ID到图形的映射
+        self.num_plays: int = 0  # 播放次数计数
+        self.time: float = 0  # 场景时间
+        self.skip_time: float = 0  # 跳过的时间
+        self.original_skipping_status: bool = self.skip_animations  # 初始跳过状态
+        self.undo_stack = []  # 撤销栈
+        self.redo_stack = []  # 重做栈
 
+        # 如果指定了开始动画编号，则跳过动画
         if self.start_at_animation_number is not None:
             self.skip_animations = True
+        # 如果文件写入器有进度显示，则不显示动画进度
         if self.file_writer.has_progress_display():
             self.show_animation_progress = False
 
-        # Items associated with interaction
-        self.mouse_point = Point()
-        self.mouse_drag_point = Point()
-        self.hold_on_wait = self.presenter_mode
-        self.quit_interaction = False
+        # 交互相关项
+        self.mouse_point = Point()  # 鼠标位置点
+        self.mouse_drag_point = Point()  # 鼠标拖拽点
+        self.hold_on_wait = self.presenter_mode  # 在等待时是否保持（演示者模式）
+        self.quit_interaction = False  # 是否退出交互
 
-        # Much nicer to work with deterministic scenes
+        # 设置随机种子，确保场景的可重复性
         if self.random_seed is not None:
             random.seed(self.random_seed)
             np.random.seed(self.random_seed)
-
     def __str__(self) -> str:
         return self.__class__.__name__
 
