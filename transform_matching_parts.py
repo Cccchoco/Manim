@@ -158,30 +158,38 @@ class TransformMatchingParts(AnimationGroup):
         scene.add(self.target)
 
 
+# 定义TransformMatchingShapes类，继承自TransformMatchingParts
+# 这是TransformMatchingParts类的一个别名，功能完全相同
 class TransformMatchingShapes(TransformMatchingParts):
     """Alias for TransformMatchingParts"""
-    pass
+    pass  # 不添加任何新功能，仅作为别名存在
 
 
 class TransformMatchingStrings(TransformMatchingParts):
+    """
+    继承自TransformMatchingParts类，专门用于字符串之间的变换动画
+    能够智能匹配源字符串和目标字符串中相同的部分，实现平滑过渡
+    """
     def __init__(
         self,
-        source: StringMobject,
-        target: StringMobject,
-        matched_keys: Iterable[str] = [],
-        key_map: dict[str, str] = dict(),
-        matched_pairs: Iterable[tuple[VMobject, VMobject]] = [],
-        **kwargs,
+        source: StringMobject,  # 源字符串对象
+        target: StringMobject,  # 目标字符串对象
+        matched_keys: Iterable[str] = [],  # 用户指定的要匹配的字符串键（子串）
+        key_map: dict[str, str] = dict(),  # 字符串键映射，{源子串: 目标子串}
+        matched_pairs: Iterable[tuple[VMobject, VMobject]] = [],  # 预定义的匹配对象对
+        **kwargs,  # 传递给父类的其他参数
     ):
+        # 组合所有匹配对：预定义的匹配对 + 自动匹配的字符串块
         matched_pairs = [
-            *matched_pairs,
+            *matched_pairs,  # 展开预定义的匹配对
+            # 自动查找并添加匹配的字符串块
             *self.matching_blocks(source, target, matched_keys, key_map),
         ]
 
+        # 调用父类TransformMatchingParts的初始化方法
         super().__init__(
             source, target,
-            matched_pairs=matched_pairs,
-            **kwargs,
+            matched_pairs=matched_pairs,** kwargs,
         )
 
     def matching_blocks(
@@ -191,44 +199,73 @@ class TransformMatchingStrings(TransformMatchingParts):
         matched_keys: Iterable[str],
         key_map: dict[str, str]
     ) -> list[tuple[VMobject, VMobject]]:
+        """
+        查找源字符串和目标字符串中匹配的子串块，返回对应的对象对
+        
+        参数:
+            source: 源字符串对象
+            target: 目标字符串对象
+            matched_keys: 用户指定的匹配键
+            key_map: 键映射关系
+        
+        返回:
+            匹配的子串对象对列表
+        """
+        # 获取源字符串和目标字符串的符号子串列表
         syms1 = source.get_symbol_substrings()
         syms2 = target.get_symbol_substrings()
+        
+        # 获取每个子串对应的路径数量（用于索引计算）
         counts1 = list(map(source.substr_to_path_count, syms1))
         counts2 = list(map(target.substr_to_path_count, syms2))
 
-        # Start with user specified matches
+        # 先处理用户指定的匹配
+        # 添加matched_keys中指定的子串匹配对
         blocks = [(source[key], target[key]) for key in matched_keys]
+        # 添加key_map中指定的子串映射对
         blocks += [(source[key1], target[key2]) for key1, key2 in key_map.items()]
 
-        # Nullify any intersections with those matches in the two symbol lists
+        # 将已匹配的部分标记为"Null"，避免重复匹配
         for sub_source, sub_target in blocks:
+            # 处理源字符串中已匹配的部分
             for i in range(len(syms1)):
                 if source[i] in sub_source.family_members_with_points():
                     syms1[i] = "Null1"
+            # 处理目标字符串中已匹配的部分
             for j in range(len(syms2)):
                 if target[j] in sub_target.family_members_with_points():
                     syms2[j] = "Null2"
 
-        # Group together longest matching substrings
+        # 自动查找最长的匹配子串并分组
         while True:
+            # 创建序列匹配器，比较两个符号列表
             matcher = SequenceMatcher(None, syms1, syms2)
+            # 查找最长的匹配子序列
             match = matcher.find_longest_match(0, len(syms1), 0, len(syms2))
+            # 如果没有找到匹配的子序列，退出循环
             if match.size == 0:
                 break
 
+            # 计算源字符串中匹配块的起始索引和大小
             i1 = sum(counts1[:match.a])
-            i2 = sum(counts2[:match.b])
             size = sum(counts1[match.a:match.a + match.size])
+            # 计算目标字符串中匹配块的起始索引
+            i2 = sum(counts2[:match.b])
 
+            # 添加匹配块的对象对
             blocks.append((source[i1:i1 + size], target[i2:i2 + size]))
 
+            # 将已匹配的部分标记为"Null"，避免重复匹配
             for i in range(match.size):
                 syms1[match.a + i] = "Null1"
                 syms2[match.b + i] = "Null2"
 
+        # 返回所有匹配的对象对
         return blocks
 
 
+# 定义TransformMatchingTex类，继承自TransformMatchingStrings
+# 这是TransformMatchingStrings类的一个别名，功能完全相同
 class TransformMatchingTex(TransformMatchingStrings):
     """Alias for TransformMatchingStrings"""
-    pass
+    pass  # 不添加任何新功能，仅作为别名存在
