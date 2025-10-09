@@ -3,81 +3,86 @@ from __future__ import annotations
 import os
 import platform
 import shutil
-import subprocess as sp
+import subprocess as sp  # 用于执行外部命令（如ffmpeg）
 import sys
 
-import numpy as np
-from pydub import AudioSegment
-from tqdm.auto import tqdm as ProgressDisplay
-from pathlib import Path
+import numpy as np  # 用于数值计算
+from pydub import AudioSegment  # 用于音频处理
+from tqdm.auto import tqdm as ProgressDisplay  # 用于显示进度条
+from pathlib import Path  # 用于路径处理
 
-from manimlib.logger import log
-from manimlib.mobject.mobject import Mobject
-from manimlib.utils.file_ops import guarantee_existence
-from manimlib.utils.sounds import get_full_sound_file_path
+from manimlib.logger import log  # manim的日志工具
+from manimlib.mobject.mobject import Mobject  # manim的基本图形对象类
+from manimlib.utils.file_ops import guarantee_existence  # 确保目录存在的工具函数
+from manimlib.utils.sounds import get_full_sound_file_path  # 获取完整声音文件路径的工具函数
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING  # 用于类型提示的条件导入
 
+# 类型检查时导入所需的类，避免循环导入问题
 if TYPE_CHECKING:
-    from PIL.Image import Image
+    from PIL.Image import Image  # 图像类型
 
-    from manimlib.camera.camera import Camera
-    from manimlib.scene.scene import Scene
+    from manimlib.camera.camera import Camera  # 相机类
+    from manimlib.scene.scene import Scene  # 场景类
 
 
 class SceneFileWriter(object):
+    """场景文件写入器，负责将场景渲染为视频或图像文件"""
+    
     def __init__(
         self,
         scene: Scene,
-        write_to_movie: bool = False,
-        subdivide_output: bool = False,
-        png_mode: str = "RGBA",
-        save_last_frame: bool = False,
-        movie_file_extension: str = ".mp4",
-        # Where should this be written
-        output_directory: str = ".",
-        file_name: str | None = None,
-        open_file_upon_completion: bool = False,
-        show_file_location_upon_completion: bool = False,
-        quiet: bool = False,
-        total_frames: int = 0,
-        progress_description_len: int = 40,
-        # Name of the binary used for ffmpeg
-        ffmpeg_bin: str = "ffmpeg",
-        video_codec: str = "libx264",
-        pixel_format: str = "yuv420p",
-        saturation: float = 1.0,
-        gamma: float = 1.0,
+        write_to_movie: bool = False,  # 是否写入视频文件
+        subdivide_output: bool = False,  # 是否将输出分割为多个部分
+        png_mode: str = "RGBA",  # 保存PNG图像的模式
+        save_last_frame: bool = False,  # 是否保存最后一帧
+        movie_file_extension: str = ".mp4",  # 视频文件扩展名
+        # 输出位置相关参数
+        output_directory: str = ".",  # 输出目录
+        file_name: str | None = None,  # 文件名
+        open_file_upon_completion: bool = False,  # 完成后是否打开文件
+        show_file_location_upon_completion: bool = False,  # 完成后是否显示文件位置
+        quiet: bool = False,  # 是否静默模式（不显示进度）
+        total_frames: int = 0,  # 总帧数
+        progress_description_len: int = 40,  # 进度描述的长度
+        # ffmpeg相关参数
+        ffmpeg_bin: str = "ffmpeg",  # ffmpeg可执行文件名称
+        video_codec: str = "libx264",  # 视频编码器
+        pixel_format: str = "yuv420p",  # 像素格式
+        saturation: float = 1.0,  # 饱和度
+        gamma: float = 1.0,  # 伽马值
     ):
-        self.scene: Scene = scene
-        self.write_to_movie = write_to_movie
-        self.subdivide_output = subdivide_output
-        self.png_mode = png_mode
-        self.save_last_frame = save_last_frame
-        self.movie_file_extension = movie_file_extension
-        self.output_directory = output_directory
-        self.file_name = file_name
-        self.open_file_upon_completion = open_file_upon_completion
-        self.show_file_location_upon_completion = show_file_location_upon_completion
-        self.quiet = quiet
-        self.total_frames = total_frames
-        self.progress_description_len = progress_description_len
-        self.ffmpeg_bin = ffmpeg_bin
-        self.video_codec = video_codec
-        self.pixel_format = pixel_format
-        self.saturation = saturation
-        self.gamma = gamma
+        self.scene: Scene = scene  # 关联的场景对象
+        self.write_to_movie = write_to_movie  # 是否写入视频
+        self.subdivide_output = subdivide_output  # 是否分割输出
+        self.png_mode = png_mode  # PNG图像模式
+        self.save_last_frame = save_last_frame  # 是否保存最后一帧
+        self.movie_file_extension = movie_file_extension  # 视频扩展名
+        self.output_directory = output_directory  # 输出目录
+        self.file_name = file_name  # 文件名
+        self.open_file_upon_completion = open_file_upon_completion  # 完成后打开文件
+        self.show_file_location_upon_completion = show_file_location_upon_completion  # 显示文件位置
+        self.quiet = quiet  # 静默模式
+        self.total_frames = total_frames  # 总帧数
+        self.progress_description_len = progress_description_len  # 进度描述长度
+        self.ffmpeg_bin = ffmpeg_bin  # ffmpeg二进制文件
+        self.video_codec = video_codec  # 视频编码器
+        self.pixel_format = pixel_format  # 像素格式
+        self.saturation = saturation  # 饱和度
+        self.gamma = gamma  # 伽马值
 
-        # State during file writing
-        self.writing_process: sp.Popen | None = None
-        self.progress_display: ProgressDisplay | None = None
-        self.ended_with_interrupt: bool = False
+        # 文件写入过程中的状态变量
+        self.writing_process: sp.Popen | None = None  # 写入进程（ffmpeg）
+        self.progress_display: ProgressDisplay | None = None  # 进度条显示
+        self.ended_with_interrupt: bool = False  # 是否因中断结束
 
+        # 初始化输出目录和音频
         self.init_output_directories()
         self.init_audio()
 
-    # Output directories and files
+    # 输出目录和文件相关方法
     def init_output_directories(self) -> None:
+        """初始化所有必要的输出目录"""
         if self.save_last_frame:
             self.image_file_path = self.init_image_file_path()
         if self.write_to_movie:
@@ -86,116 +91,142 @@ class SceneFileWriter(object):
             self.partial_movie_directory = self.init_partial_movie_directory()
 
     def init_image_file_path(self) -> Path:
+        """初始化图像文件路径"""
         return self.get_output_file_rootname().with_suffix(".png")
 
     def init_movie_file_path(self) -> Path:
+        """初始化视频文件路径"""
         return self.get_output_file_rootname().with_suffix(self.movie_file_extension)
 
     def init_partial_movie_directory(self):
+        """初始化部分视频文件的存放目录"""
         return guarantee_existence(self.get_output_file_rootname())
 
     def get_output_file_rootname(self) -> Path:
+        """获取输出文件的根路径（不含扩展名）"""
         return Path(
-            guarantee_existence(self.output_directory),
-            self.get_output_file_name()
+            guarantee_existence(self.output_directory),  # 确保输出目录存在
+            self.get_output_file_name()  # 获取输出文件名
         )
 
     def get_output_file_name(self) -> str:
+        """获取输出文件名（不含路径和扩展名）"""
         if self.file_name:
             return self.file_name
-        # Otherwise, use the name of the scene, potentially
-        # appending animation numbers
+        # 否则，使用场景名称，可能附加动画编号
         name = str(self.scene)
-        saan = self.scene.start_at_animation_number
-        eaan = self.scene.end_at_animation_number
+        saan = self.scene.start_at_animation_number  # 开始动画编号
+        eaan = self.scene.end_at_animation_number  # 结束动画编号
         if saan is not None:
             name += f"_{saan}"
         if eaan is not None:
             name += f"_{eaan}"
         return name
 
-    # Directory getters
+    # 目录获取方法
     def get_image_file_path(self) -> str:
+        """获取图像文件路径"""
         return self.image_file_path
 
     def get_next_partial_movie_path(self) -> str:
+        """获取下一个部分视频文件的路径"""
         result = Path(self.partial_movie_directory, f"{self.scene.num_plays:05}")
         return result.with_suffix(self.movie_file_extension)
 
     def get_movie_file_path(self) -> str:
+        """获取完整视频文件的路径"""
         return self.movie_file_path
 
-    # Sound
+    # 音频相关方法
     def init_audio(self) -> None:
-        self.includes_sound: bool = False
+        """初始化音频相关变量"""
+        self.includes_sound: bool = False  # 是否包含声音
 
     def create_audio_segment(self) -> None:
+        """创建一个空的音频片段"""
         self.audio_segment = AudioSegment.silent()
 
     def add_audio_segment(
         self,
-        new_segment: AudioSegment,
-        time: float | None = None,
-        gain_to_background: float | None = None
+        new_segment: AudioSegment,  # 要添加的音频片段
+        time: float | None = None,  # 插入时间点（秒）
+        gain_to_background: float | None = None  # 叠加时的背景增益
     ) -> None:
+        """添加音频片段到音频轨道"""
         if not self.includes_sound:
             self.includes_sound = True
             self.create_audio_segment()
         segment = self.audio_segment
-        curr_end = segment.duration_seconds
+        curr_end = segment.duration_seconds  # 当前音频的结束时间
         if time is None:
-            time = curr_end
+            time = curr_end  # 默认添加到末尾
         if time < 0:
-            raise Exception("Adding sound at timestamp < 0")
+            raise Exception("Adding sound at timestamp < 0")  # 不允许负时间点
 
-        new_end = time + new_segment.duration_seconds
-        diff = new_end - curr_end
+        new_end = time + new_segment.duration_seconds  # 新的结束时间
+        diff = new_end - curr_end  # 计算需要补充的静音时长
         if diff > 0:
+            # 补充静音以确保新片段能正确插入
             segment = segment.append(
-                AudioSegment.silent(int(np.ceil(diff * 1000))),
-                crossfade=0,
+                AudioSegment.silent(int(np.ceil(diff * 1000))),  # 毫秒为单位
+                crossfade=0,  # 无交叉淡入淡出
             )
+        # 将新片段叠加到主音频轨道
         self.audio_segment = segment.overlay(
             new_segment,
-            position=int(1000 * time),
-            gain_during_overlay=gain_to_background,
+            position=int(1000 * time),  # 位置（毫秒）
+            gain_during_overlay=gain_to_background,  # 叠加时的增益
         )
 
     def add_sound(
         self,
-        sound_file: str,
-        time: float | None = None,
-        gain: float | None = None,
-        gain_to_background: float | None = None
+        sound_file: str,  # 声音文件路径
+        time: float | None = None,  # 插入时间点
+        gain: float | None = None,  # 声音增益
+        gain_to_background: float | None = None  # 叠加时的背景增益
     ) -> None:
-        file_path = get_full_sound_file_path(sound_file)
-        new_segment = AudioSegment.from_file(file_path)
+        """添加声音文件到音频轨道"""
+        file_path = get_full_sound_file_path(sound_file)  # 获取完整路径
+        new_segment = AudioSegment.from_file(file_path)  # 加载音频文件
         if gain:
-            new_segment = new_segment.apply_gain(gain)
+            new_segment = new_segment.apply_gain(gain)  # 应用增益
+        # 添加到音频轨道
         self.add_audio_segment(new_segment, time, gain_to_background)
 
-    # Writers
+    # 写入器控制方法
     def begin(self) -> None:
+        """开始写入过程"""
         if not self.subdivide_output and self.write_to_movie:
+            # 非分割模式下，直接打开视频管道
             self.open_movie_pipe(self.get_movie_file_path())
 
     def begin_animation(self) -> None:
+        """开始一个动画片段的写入"""
         if self.subdivide_output and self.write_to_movie:
+            # 分割模式下，为每个动画片段打开单独的视频管道
             self.open_movie_pipe(self.get_next_partial_movie_path())
 
     def end_animation(self) -> None:
+        """结束当前动画片段的写入"""
         if self.subdivide_output and self.write_to_movie:
+            # 关闭当前视频管道
             self.close_movie_pipe()
 
     def finish(self) -> None:
+        """完成所有写入操作"""
         if not self.subdivide_output and self.write_to_movie:
+            # 关闭视频管道
             self.close_movie_pipe()
+            # 如果包含声音，将音频添加到视频
             if self.includes_sound:
                 self.add_sound_to_video()
+            # 打印文件就绪消息
             self.print_file_ready_message(self.get_movie_file_path())
+        # 如果需要保存最后一帧
         if self.save_last_frame:
-            self.scene.update_frame(force_draw=True)
-            self.save_final_image(self.scene.get_image())
+            self.scene.update_frame(force_draw=True)  # 强制更新帧
+            self.save_final_image(self.scene.get_image())  # 保存图像
+        # 如果需要打开文件
         if self.should_open_file():
             self.open_file()
 
