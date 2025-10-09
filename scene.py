@@ -149,179 +149,236 @@ class Scene(object):
             random.seed(self.random_seed)
             np.random.seed(self.random_seed)
     def __str__(self) -> str:
-        return self.__class__.__name__
+    # 返回当前类的名称作为字符串表示
+    return self.__class__.__name__
 
-    def get_window(self) -> Window | None:
-        return self.window
+def get_window(self) -> Window | None:
+    # 返回当前场景关联的窗口对象，可能为None
+    return self.window
 
-    def run(self) -> None:
-        self.virtual_animation_start_time: float = 0
-        self.real_animation_start_time: float = time.time()
-        self.file_writer.begin()
+def run(self) -> None:
+    # 初始化虚拟动画开始时间为0
+    self.virtual_animation_start_time: float = 0
+    # 记录实际动画开始的时间（当前系统时间）
+    self.real_animation_start_time: float = time.time()
+    # 通知文件写入器开始工作
+    self.file_writer.begin()
 
-        self.setup()
-        try:
-            self.construct()
-            self.interact()
-        except EndScene:
-            pass
-        except KeyboardInterrupt:
-            # Get rid keyboard interupt symbols
-            print("", end="\r")
-            self.file_writer.ended_with_interrupt = True
-        self.tear_down()
-
-    def setup(self) -> None:
-        """
-        This is meant to be implement by any scenes which
-        are comonly subclassed, and have some common setup
-        involved before the construct method is called.
-        """
+    # 调用设置方法
+    self.setup()
+    try:
+        # 调用构建场景方法（子类实现具体动画内容）
+        self.construct()
+        # 进入交互模式
+        self.interact()
+    except EndScene:
+        # 捕获结束场景异常，不做处理直接忽略
         pass
+    except KeyboardInterrupt:
+        # 捕获键盘中断（如Ctrl+C）
+        # 清除键盘中断显示的符号
+        print("", end="\r")
+        # 标记文件写入器因中断而结束
+        self.file_writer.ended_with_interrupt = True
+    # 调用清理方法
+    self.tear_down()
 
-    def construct(self) -> None:
-        # Where all the animation happens
-        # To be implemented in subclasses
-        pass
+def setup(self) -> None:
+    """
+    这个方法旨在由任何通常被继承的场景实现，
+    在调用construct方法之前进行一些通用的设置工作。
+    """
+    pass
 
-    def tear_down(self) -> None:
-        self.stop_skipping()
-        self.file_writer.finish()
-        if self.window:
-            self.window.destroy()
-            self.window = None
+def construct(self) -> None:
+    # 所有动画发生的地方
+    # 需在子类中实现
+    pass
 
-    def interact(self) -> None:
-        """
-        If there is a window, enter a loop
-        which updates the frame while under
-        the hood calling the pyglet event loop
-        """
-        if self.window is None:
-            return
-        log.info(
-            "\nTips: Using the keys `d`, `f`, or `z` " +
-            "you can interact with the scene. " +
-            "Press `command + q` or `esc` to quit"
-        )
-        self.skip_animations = False
-        while not self.is_window_closing():
-            self.update_frame(1 / self.camera.fps)
+def tear_down(self) -> None:
+    # 停止跳过动画
+    self.stop_skipping()
+    # 通知文件写入器完成工作
+    self.file_writer.finish()
+    # 如果存在窗口对象
+    if self.window:
+        # 销毁窗口
+        self.window.destroy()
+        # 将窗口引用设为None
+        self.window = None
 
-    def embed(
-        self,
-        close_scene_on_exit: bool = True,
-        show_animation_progress: bool = False,
-    ) -> None:
-        if not self.window:
-            # Embed is only relevant for interactive development with a Window
-            return
-        self.show_animation_progress = show_animation_progress
-        self.stop_skipping()
-        self.update_frame(force_draw=True)
+def interact(self) -> None:
+    """
+    如果存在窗口，进入一个循环，
+    在内部调用pyglet事件循环的同时更新帧
+    """
+    # 如果没有窗口则直接返回
+    if self.window is None:
+        return
+    # 输出提示信息
+    log.info(
+        "\nTips: Using the keys `d`, `f`, or `z` " +
+        "you can interact with the scene. " +
+        "Press `command + q` or `esc` to quit"
+    )
+    # 初始化跳过动画标志为False
+    self.skip_animations = False
+    # 当窗口未关闭时持续循环
+    while not self.is_window_closing():
+        # 以相机帧率的倒数作为时间间隔更新帧
+        self.update_frame(1 / self.camera.fps)
 
-        InteractiveSceneEmbed(self).launch()
+def embed(
+    self,
+    close_scene_on_exit: bool = True,
+    show_animation_progress: bool = False,
+) -> None:
+    # 如果没有窗口，嵌入功能不适用，直接返回
+    if not self.window:
+        # 嵌入仅与带有窗口的交互式开发相关
+        return
+    # 设置是否显示动画进度
+    self.show_animation_progress = show_animation_progress
+    # 停止跳过动画
+    self.stop_skipping()
+    # 强制绘制更新帧
+    self.update_frame(force_draw=True)
 
-        # End scene when exiting an embed
-        if close_scene_on_exit:
-            raise EndScene()
+    # 启动交互式场景嵌入
+    InteractiveSceneEmbed(self).launch()
 
-    # Only these methods should touch the camera
+    # 当退出嵌入时关闭场景
+    if close_scene_on_exit:
+        raise EndScene()
 
-    def get_image(self) -> Image:
-        if self.window is not None:
-            self.camera.use_window_fbo(False)
-            self.camera.capture(*self.render_groups)
-        image = self.camera.get_image()
-        if self.window is not None:
-            self.camera.use_window_fbo(True)
-        return image
+# 只有这些方法应该接触相机
 
-    def show(self) -> None:
-        self.update_frame(force_draw=True)
-        self.get_image().show()
-
-    def update_frame(self, dt: float = 0, force_draw: bool = False) -> None:
-        self.increment_time(dt)
-        self.update_mobjects(dt)
-        if self.skip_animations and not force_draw:
-            return
-
-        if self.is_window_closing():
-            raise EndScene()
-
-        if self.window and dt == 0 and not self.window.has_undrawn_event() and not force_draw:
-            # In this case, there's no need for new rendering, but we
-            # shoudl still listen for new events
-            self.window._window.dispatch_events()
-            return
-
+def get_image(self) -> Image:
+    # 如果窗口存在
+    if self.window is not None:
+        # 告诉相机不要使用窗口的帧缓冲区
+        self.camera.use_window_fbo(False)
+        # 让相机捕获所有渲染组的内容
         self.camera.capture(*self.render_groups)
+    # 从相机获取图像
+    image = self.camera.get_image()
+    # 如果窗口存在
+    if self.window is not None:
+        # 告诉相机使用窗口的帧缓冲区
+        self.camera.use_window_fbo(True)
+    # 返回获取的图像
+    return image
 
-        if self.window and not self.skip_animations:
-            vt = self.time - self.virtual_animation_start_time
-            rt = time.time() - self.real_animation_start_time
-            time.sleep(max(vt - rt, 0))
+def show(self) -> None:
+    # 强制绘制更新帧
+    self.update_frame(force_draw=True)
+    # 获取图像并显示
+    self.get_image().show()
 
-    def emit_frame(self) -> None:
-        if not self.skip_animations:
-            self.file_writer.write_frame(self.camera)
+def update_frame(self, dt: float = 0, force_draw: bool = False) -> None:
+    # 增加时间
+    self.increment_time(dt)
+    # 更新所有可移动对象
+    self.update_mobjects(dt)
+    # 如果跳过动画且不强制绘制，则返回
+    if self.skip_animations and not force_draw:
+        return
 
-    # Related to updating
+    # 如果窗口正在关闭，抛出结束场景异常
+    if self.is_window_closing():
+        raise EndScene()
 
-    def update_mobjects(self, dt: float) -> None:
-        for mobject in self.mobjects:
-            mobject.update(dt)
+    # 如果窗口存在，且时间间隔为0，且没有未绘制的事件，且不强制绘制
+    if self.window and dt == 0 and not self.window.has_undrawn_event() and not force_draw:
+        # 在这种情况下，不需要新的渲染，但仍应监听新事件
+        self.window._window.dispatch_events()
+        return
 
-    def should_update_mobjects(self) -> bool:
-        return self.always_update_mobjects or any(
-            mob.has_updaters() for mob in self.mobjects
-        )
+    # 让相机捕获所有渲染组的内容
+    self.camera.capture(*self.render_groups)
 
-    # Related to time
+    # 如果窗口存在且不跳过动画
+    if self.window and not self.skip_animations:
+        # 计算虚拟动画时间（当前时间减去虚拟动画开始时间）
+        vt = self.time - self.virtual_animation_start_time
+        # 计算实际动画时间（当前系统时间减去实际动画开始时间）
+        rt = time.time() - self.real_animation_start_time
+        # 确保虚拟时间不超过实际时间，必要时休眠
+        time.sleep(max(vt - rt, 0))
 
-    def get_time(self) -> float:
-        return self.time
+def emit_frame(self) -> None:
+    # 如果不跳过动画
+    if not self.skip_animations:
+        # 让文件写入器写入当前相机捕获的帧
+        self.file_writer.write_frame(self.camera)
 
-    def increment_time(self, dt: float) -> None:
-        self.time += dt
+# 与更新相关的方法
 
-    # Related to internal mobject organization
+def update_mobjects(self, dt: float) -> None:
+    # 遍历所有可移动对象
+    for mobject in self.mobjects:
+        # 调用每个对象的更新方法，传入时间间隔
+        mobject.update(dt)
 
-    def get_top_level_mobjects(self) -> list[Mobject]:
-        # Return only those which are not in the family
-        # of another mobject from the scene
-        mobjects = self.get_mobjects()
-        families = [m.get_family() for m in mobjects]
+def should_update_mobjects(self) -> bool:
+    # 如果始终更新可移动对象，或者任何可移动对象有更新器，则返回True
+    return self.always_update_mobjects or any(
+        mob.has_updaters() for mob in self.mobjects
+    )
 
-        def is_top_level(mobject):
-            num_families = sum([
-                (mobject in family)
-                for family in families
-            ])
-            return num_families == 1
-        return list(filter(is_top_level, mobjects))
+# 与时间相关的方法
 
-    def get_mobject_family_members(self) -> list[Mobject]:
-        return extract_mobject_family_members(self.mobjects)
+def get_time(self) -> float:
+    # 返回当前时间
+    return self.time
 
-    def assemble_render_groups(self):
-        """
-        Rendering can be more efficient when mobjects of the
-        same type are grouped together, so this function creates
-        Groups of all clusters of adjacent Mobjects in the scene
-        """
-        batches = batch_by_property(
-            self.mobjects,
-            lambda m: str(type(m)) + str(m.get_shader_wrapper(self.camera.ctx).get_id()) + str(m.z_index)
-        )
+def increment_time(self, dt: float) -> None:
+    # 增加时间，加上时间间隔dt
+    self.time += dt
 
-        for group in self.render_groups:
-            group.clear()
-        self.render_groups = [
-            batch[0].get_group_class()(*batch)
-            for batch, key in batches
-        ]
+# 与内部可移动对象组织相关的方法
+
+def get_top_level_mobjects(self) -> list[Mobject]:
+    # 返回那些不在场景中其他可移动对象家族中的顶级可移动对象
+    mobjects = self.get_mobjects()
+    # 获取每个可移动对象的家族（包括自身和子对象）
+    families = [m.get_family() for m in mobjects]
+
+    def is_top_level(mobject):
+        # 计算该可移动对象属于多少个家族
+        num_families = sum([
+            (mobject in family)
+            for family in families
+        ])
+        # 只属于自身家族的才是顶级对象
+        return num_families == 1
+    # 过滤并返回顶级可移动对象列表
+    return list(filter(is_top_level, mobjects))
+
+def get_mobject_family_members(self) -> list[Mobject]:
+    # 提取所有可移动对象的家族成员并返回
+    return extract_mobject_family_members(self.mobjects)
+
+def assemble_render_groups(self):
+    """
+    当相同类型的可移动对象组合在一起时，渲染会更高效，
+    因此这个函数创建场景中所有相邻可移动对象集群的组
+    """
+    # 按特定属性对可移动对象进行分组
+    batches = batch_by_property(
+        self.mobjects,
+        # 分组键：类型字符串 + 着色器包装器ID + z轴索引
+        lambda m: str(type(m)) + str(m.get_shader_wrapper(self.camera.ctx).get_id()) + str(m.z_index)
+    )
+
+    # 清空现有的渲染组
+    for group in self.render_groups:
+        group.clear()
+    # 重新创建渲染组：为每个批次创建对应的组
+    self.render_groups = [
+        batch[0].get_group_class()(*batch)
+        for batch, key in batches
+    ]
 
     @staticmethod
     def affects_mobject_list(func: Callable[..., T]) -> Callable[..., T]:
