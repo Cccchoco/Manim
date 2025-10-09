@@ -37,81 +37,98 @@ if TYPE_CHECKING:
     from manimlib.scene.scene import Scene
 
 
+# 定义TransformMatchingParts类，继承自AnimationGroup，用于创建匹配部分变换的动画组
 class TransformMatchingParts(AnimationGroup):
     def __init__(
         self,
-        source: Mobject,
-        target: Mobject,
-        matched_pairs: Iterable[tuple[Mobject, Mobject]] = [],
-        match_animation: type = Transform,
-        mismatch_animation: type = Transform,
-        run_time: float = 2,
-        lag_ratio: float = 0,
-        **kwargs,
+        source: Mobject,  # 源对象，动画的起始对象
+        target: Mobject,  # 目标对象，动画的结束对象
+        matched_pairs: Iterable[tuple[Mobject, Mobject]] = [],  # 预定义的匹配对列表
+        match_animation: type = Transform,  # 用于匹配部分的动画类型
+        mismatch_animation: type = Transform,  # 用于不匹配部分的动画类型
+        run_time: float = 2,  # 动画总时长
+        lag_ratio: float = 0,  # 动画组中各子动画的延迟比例
+        **kwargs,  # 传递给动画的其他参数
     ):
+        # 保存源对象和目标对象
         self.source = source
         self.target = target
+        # 保存匹配和不匹配部分使用的动画类型
         self.match_animation = match_animation
         self.mismatch_animation = mismatch_animation
-        self.anim_config = dict(**kwargs)
+        # 保存动画配置参数
+        self.anim_config = dict(** kwargs)
 
-        # We will progressively build up a list of transforms
-        # from pieces in source to those in target. These
-        # two lists keep track of which pieces are accounted
-        # for so far
+        # 逐步构建从源对象部分到目标对象部分的变换列表
+        # 这两个列表跟踪到目前为止已处理的部分
+        # 获取源对象和目标对象中所有带有点的子对象
         self.source_pieces = source.family_members_with_points()
         self.target_pieces = target.family_members_with_points()
+        # 存储所有动画的列表
         self.anims = []
 
+        # 处理预定义的匹配对
         for pair in matched_pairs:
             self.add_transform(*pair)
 
-        # Match any pairs with the same shape
+        # 匹配任何具有相同形状的对
         for pair in self.find_pairs_with_matching_shapes(self.source_pieces, self.target_pieces):
             self.add_transform(*pair)
 
-        # Finally, account for mismatches
+        # 最后，处理不匹配的部分
+        # 处理源对象中未匹配的部分：淡出到目标对象中心
         for source_piece in self.source_pieces:
+            # 检查该源对象部分是否已在动画中
             if any([source_piece in anim.mobject.get_family() for anim in self.anims]):
                 continue
+            # 添加淡出动画
             self.anims.append(FadeOutToPoint(
                 source_piece, target.get_center(),
                 **self.anim_config
             ))
+        # 处理目标对象中未匹配的部分：从源对象中心淡入
         for target_piece in self.target_pieces:
+            # 检查该目标对象部分是否已在动画中
             if any([target_piece in anim.mobject.get_family() for anim in self.anims]):
                 continue
+            # 添加淡入动画
             self.anims.append(FadeInFromPoint(
                 target_piece, source.get_center(),
                 **self.anim_config
             ))
 
+        # 调用父类AnimationGroup的初始化方法
         super().__init__(
-            *self.anims,
-            run_time=run_time,
-            lag_ratio=lag_ratio,
+            *self.anims,  # 展开所有动画
+            run_time=run_time,  # 动画总时长
+            lag_ratio=lag_ratio,  # 延迟比例
         )
 
     def add_transform(
         self,
-        source: Mobject,
-        target: Mobject,
+        source: Mobject,  # 源部分对象
+        target: Mobject,  # 目标部分对象
     ):
+        # 获取源部分和目标部分中所有带有点的子对象
         new_source_pieces = source.family_members_with_points()
         new_target_pieces = target.family_members_with_points()
+        # 如果源部分或目标部分为空，则不创建动画
         if len(new_source_pieces) == 0 or len(new_target_pieces) == 0:
-            # Don't animate null sorces or null targets
             return
+        # 检查源部分和目标部分是否都是未处理的新部分
         source_is_new = all(char in self.source_pieces for char in new_source_pieces)
         target_is_new = all(char in self.target_pieces for char in new_target_pieces)
         if not source_is_new or not target_is_new:
             return
 
+        # 根据形状是否匹配选择动画类型
         transform_type = self.mismatch_animation 
         if source.has_same_shape_as(target):
             transform_type = self.match_animation
 
+        # 添加变换动画
         self.anims.append(transform_type(source, target, **self.anim_config))
+        # 从待处理列表中移除已匹配的部分
         for char in new_source_pieces:
             self.source_pieces.remove(char)
         for char in new_target_pieces:
@@ -119,18 +136,25 @@ class TransformMatchingParts(AnimationGroup):
 
     def find_pairs_with_matching_shapes(
         self,
-        chars1: list[Mobject],
-        chars2: list[Mobject]
+        chars1: list[Mobject],  # 第一组对象
+        chars2: list[Mobject]  # 第二组对象
     ) -> list[tuple[Mobject, Mobject]]:
+        """查找具有相同形状的对象对"""
         result = []
+        # 遍历所有可能的组合
         for char1, char2 in it.product(chars1, chars2):
+            # 检查形状是否相同
             if char1.has_same_shape_as(char2):
                 result.append((char1, char2))
         return result
 
     def clean_up_from_scene(self, scene: Scene) -> None:
+        """从场景中清理动画对象"""
+        # 调用父类的清理方法
         super().clean_up_from_scene(scene)
+        # 从场景中移除源对象
         scene.remove(self.mobject)
+        # 将目标对象添加到场景中
         scene.add(self.target)
 
 
