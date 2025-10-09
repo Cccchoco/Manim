@@ -218,44 +218,62 @@ def checkpoint_paste(
 
 
 class CheckpointManager:
+    """检查点管理器类，用于在交互式开发过程中管理场景的状态检查点"""
+    
     def __init__(self):
+        # 初始化检查点状态字典，键为检查点标识（字符串），
+        # 值为场景状态列表，每个状态由两个Mobject对象组成的元组表示
         self.checkpoint_states: dict[str, list[tuple[Mobject, Mobject]]] = dict()
 
     def checkpoint_paste(self, shell, scene):
         """
-        Used during interactive development to run (or re-run)
-        a block of scene code.
-
-        If the copied selection starts with a comment, this will
-        revert to the state of the scene the first time this function
-        was called on a block of code starting with that comment.
+        在交互式开发中用于运行（或重新运行）一段场景代码
+        
+        如果复制的代码块以注释开头，将恢复到首次调用此函数处理
+        以该注释开头的代码块时的场景状态
         """
+        # 从剪贴板获取代码字符串
         code_string = pyperclip.paste()
+        # 获取代码块的前导注释作为检查点键
         checkpoint_key = self.get_leading_comment(code_string)
+        # 根据检查点键处理场景状态
         self.handle_checkpoint_key(scene, checkpoint_key)
+        # 在shell中运行获取的代码字符串
         shell.run_cell(code_string)
 
     @staticmethod
     def get_leading_comment(code_string: str) -> str:
+        """提取代码字符串中的前导注释作为检查点标识"""
+        # 获取代码的第一行并去除左侧空白
         leading_line = code_string.partition("\n")[0].lstrip()
+        # 如果第一行是注释，返回该注释；否则返回空字符串
         if leading_line.startswith("#"):
             return leading_line
         return ""
 
     def handle_checkpoint_key(self, scene, key: str):
+        """根据检查点键处理场景状态（恢复或保存）"""
+        # 如果没有检查点键，直接返回
         if not key:
             return
+        # 如果检查点键已存在于状态字典中
         elif key in self.checkpoint_states:
-            # Revert to checkpoint
+            # 恢复场景到该检查点的状态
             scene.restore_state(self.checkpoint_states[key])
 
-            # Clear out any saved states that show up later
+            # 清除所有在当前检查点之后保存的状态
+            # 获取所有检查点键的列表
             all_keys = list(self.checkpoint_states.keys())
+            # 找到当前键在列表中的位置
             index = all_keys.index(key)
+            # 移除当前键之后的所有检查点状态
             for later_key in all_keys[index + 1:]:
                 self.checkpoint_states.pop(later_key)
+        # 如果检查点键不存在
         else:
+            # 保存当前场景状态到检查点字典
             self.checkpoint_states[key] = scene.get_state()
 
     def clear_checkpoints(self):
+        """清除所有保存的检查点状态"""
         self.checkpoint_states = dict()
