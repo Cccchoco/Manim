@@ -51,69 +51,95 @@ if TYPE_CHECKING:
 
 
 class FocusOn(Transform):
+    """
+    继承自Transform动画类，用于创建一个聚焦效果动画
+    表现为从屏幕边缘向焦点位置收缩的半透明遮罩，突出显示焦点区域
+    """
     def __init__(
         self,
-        focus_point: np.ndarray | Mobject,
-        opacity: float = 0.2,
-        color: ManimColor = GREY,
-        run_time: float = 2,
-        remover: bool = True,
-        **kwargs
+        focus_point: np.ndarray | Mobject,  # 聚焦点，可以是坐标数组或Mobject对象
+        opacity: float = 0.2,  # 遮罩的不透明度
+        color: ManimColor = GREY,  # 遮罩的颜色
+        run_time: float = 2,  # 动画持续时间
+        remover: bool = True,  # 动画结束后是否移除遮罩
+        **kwargs  # 传递给父类Transform的其他参数
     ):
+        # 保存聚焦点、不透明度和颜色为实例属性
         self.focus_point = focus_point
         self.opacity = opacity
         self.color = color
-        # Initialize with blank mobject, while create_target
-        # and create_starting_mobject handle the meat
-        super().__init__(VMobject(), run_time=run_time, remover=remover, **kwargs)
+        # 调用父类Transform的初始化方法
+        # 先以空白的VMobject初始化，具体的起始和目标对象由后续方法创建
+        super().__init__(VMobject(), run_time=run_time, remover=remover,** kwargs)
 
     def create_target(self) -> Dot:
+        """创建动画的目标对象（最终状态）"""
+        # 创建一个半径为0的点（实际上不可见）
         little_dot = Dot(radius=0)
+        # 设置点的填充颜色和不透明度
         little_dot.set_fill(self.color, opacity=self.opacity)
+        # 添加更新器，确保点始终跟随聚焦点移动
         little_dot.add_updater(lambda d: d.move_to(self.focus_point))
         return little_dot
 
     def create_starting_mobject(self) -> Dot:
+        """创建动画的起始对象（初始状态）"""
+        # 创建一个覆盖整个屏幕的大圆点作为起始遮罩
         return Dot(
-            radius=FRAME_X_RADIUS + FRAME_Y_RADIUS,
-            stroke_width=0,
-            fill_color=self.color,
-            fill_opacity=0,
+            radius=FRAME_X_RADIUS + FRAME_Y_RADIUS,  # 半径为屏幕宽高半径之和，确保覆盖全屏
+            stroke_width=0,  # 无边框
+            fill_color=self.color,  # 填充颜色
+            fill_opacity=0,  # 初始完全透明
         )
 
 
 class Indicate(Transform):
+    """
+    继承自Transform动画类，用于创建"指示"效果动画
+    表现为对象先放大变色，再恢复原状，起到强调突出的作用
+    """
     def __init__(
         self,
-        mobject: Mobject,
-        scale_factor: float = 1.2,
-        color: ManimColor = YELLOW,
-        rate_func: Callable[[float], float] = there_and_back,
-        **kwargs
+        mobject: Mobject,  # 要进行指示动画的对象
+        scale_factor: float = 1.2,  # 放大倍数，默认1.2倍
+        color: ManimColor = YELLOW,  # 指示时的高亮颜色，默认黄色
+        # 速率函数，默认使用there_and_back（去而复返），使动画先变后恢复
+        rate_func: Callable[[float], float] = there_and_back,** kwargs  # 传递给父类Transform的其他参数
     ):
+        # 保存放大倍数和高亮颜色为实例属性
         self.scale_factor = scale_factor
         self.color = color
+        # 调用父类Transform的初始化方法，传入速率函数等参数
         super().__init__(mobject, rate_func=rate_func, **kwargs)
 
     def create_target(self) -> Mobject:
+        """创建动画的目标对象（中间状态）"""
+        # 复制原始对象作为目标对象的基础
         target = self.mobject.copy()
+        # 按照指定倍数放大目标对象
         target.scale(self.scale_factor)
+        # 将目标对象设置为高亮颜色
         target.set_color(self.color)
         return target
 
 
 class Flash(AnimationGroup):
+    """
+    继承自AnimationGroup动画组类，用于创建"闪烁"效果动画
+    表现为从指定点向外放射出多条线条，然后消失，类似闪光效果
+    """
     def __init__(
         self,
-        point: np.ndarray | Mobject,
-        color: ManimColor = YELLOW,
-        line_length: float = 0.2,
-        num_lines: int = 12,
-        flash_radius: float = 0.3,
-        line_stroke_width: float = 3.0,
-        run_time: float = 1.0,
-        **kwargs
+        point: np.ndarray | Mobject,  # 闪光的中心点，可以是坐标数组或Mobject对象
+        color: ManimColor = YELLOW,  # 闪光线条的颜色，默认黄色
+        line_length: float = 0.2,  # 每条闪光线条的长度
+        num_lines: int = 12,  # 闪光线条的数量
+        flash_radius: float = 0.3,  # 闪光的初始半径（线条起点到中心的距离）
+        line_stroke_width: float = 3.0,  # 线条的粗细
+        run_time: float = 1.0,  # 动画持续时间
+        **kwargs  # 传递给父类AnimationGroup的其他参数
     ):
+        # 保存闪光效果的各项参数为实例属性
         self.point = point
         self.color = color
         self.line_length = line_length
@@ -121,30 +147,46 @@ class Flash(AnimationGroup):
         self.flash_radius = flash_radius
         self.line_stroke_width = line_stroke_width
 
+        # 创建闪光效果的所有线条
         self.lines = self.create_lines()
+        # 为每条线条创建对应的动画
         animations = self.create_line_anims()
+        # 调用父类AnimationGroup的初始化方法
         super().__init__(
-            *animations,
-            group=self.lines,
-            run_time=run_time,
-            **kwargs,
+            *animations,  # 展开所有线条的动画
+            group=self.lines,  # 指定动画组的对象
+            run_time=run_time,  # 动画持续时间
+            **kwargs,  # 其他参数
         )
 
     def create_lines(self) -> VGroup:
+        """创建组成闪光效果的所有线条"""
+        # 创建一个向量图形组来管理所有线条
         lines = VGroup()
+        # 按照角度均匀分布创建指定数量的线条
+        # TAU是2π，代表360度，这里将圆周等分为num_lines份
         for angle in np.arange(0, TAU, TAU / self.num_lines):
+            # 创建一条从原点到右侧指定长度的线段
             line = Line(ORIGIN, self.line_length * RIGHT)
+            # 将线条移动到闪光半径的位置（线条起点距离中心的距离）
             line.shift((self.flash_radius - self.line_length) * RIGHT)
+            # 绕原点旋转线条到当前角度，形成放射状分布
             line.rotate(angle, about_point=ORIGIN)
+            # 将线条添加到图形组中
             lines.add(line)
+        # 设置所有线条的样式（颜色和粗细）
         lines.set_stroke(
             color=self.color,
             width=self.line_stroke_width
         )
+        # 添加更新器，确保所有线条始终围绕指定点（point）
         lines.add_updater(lambda l: l.move_to(self.point))
         return lines
 
     def create_line_anims(self) -> list[Animation]:
+        """为每条线条创建显示后消失的动画"""
+        # 为每条线创建ShowCreationThenDestruction动画
+        # 该动画会先显示线条（从无到有），然后再让线条消失（从有到无）
         return [
             ShowCreationThenDestruction(line)
             for line in self.lines
@@ -152,25 +194,36 @@ class Flash(AnimationGroup):
 
 
 class CircleIndicate(Transform):
+    """
+    继承自Transform动画类，用于创建圆形指示动画
+    表现为围绕目标对象的圆形边框先放大再缩小，起到强调作用
+    """
     def __init__(
         self,
-        mobject: Mobject,
-        scale_factor: float = 1.2,
+        mobject: Mobject,  # 要被指示的目标对象
+        scale_factor: float = 1.2,  # 圆形放大倍数，默认1.2倍
+        # 速率函数，默认使用there_and_back（去而复返），使动画先放大后缩小
         rate_func: Callable[[float], float] = there_and_back,
-        stroke_color: ManimColor = YELLOW,
-        stroke_width: float = 3.0,
-        remover: bool = True,
-        **kwargs
+        stroke_color: ManimColor = YELLOW,  # 圆形边框颜色，默认黄色
+        stroke_width: float = 3.0,  # 圆形边框粗细
+        remover: bool = True,  # 动画结束后是否移除圆形
+        **kwargs  # 传递给父类Transform的其他参数
     ):
+        # 创建一个圆形，设置其边框颜色和粗细
         circle = Circle(stroke_color=stroke_color, stroke_width=stroke_width)
+        # 让圆形包围目标对象（调整大小以刚好包围目标）
         circle.surround(mobject)
+        # 复制圆形作为初始状态对象，并将其边框宽度设为0（初始不可见）
         pre_circle = circle.copy().set_stroke(width=0)
+        # 将初始圆形按缩放因子的倒数缩小（为后续放大动画做准备）
         pre_circle.scale(1 / scale_factor)
+        # 调用父类Transform的初始化方法，将初始圆形变换为目标圆形
         super().__init__(
-            pre_circle, circle,
-            rate_func=rate_func,
-            remover=remover,
-            **kwargs
+            pre_circle,  # 起始对象（缩小且不可见的圆形）
+            circle,      # 目标对象（包围目标且可见的圆形）
+            rate_func=rate_func,  # 应用速率函数
+            remover=remover,      # 动画结束后移除圆形
+            **kwargs              # 其他参数
         )
 
 
