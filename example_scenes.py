@@ -1,4 +1,9 @@
+# 从manimlib库导入所有内容，这是Manim动画引擎的核心库
+# 包含了创建动画所需的各种类、函数和常量
 from manimlib import *
+
+# 导入numpy库并简写为np，用于科学计算和数组操作
+# 在Manim中常用于处理坐标、向量和数学运算
 import numpy as np
 
 # To watch one of these scenes, run the following:
